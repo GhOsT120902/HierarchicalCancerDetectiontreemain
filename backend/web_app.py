@@ -160,8 +160,8 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Serve the hierarchical inference frontend.')
-    parser.add_argument('--host', type=str, default='127.0.0.1')
-    parser.add_argument('--port', type=int, default=8000)
+    parser.add_argument('--host', type=str, default='0.0.0.0')
+    parser.add_argument('--port', type=int, default=5000)
     parser.add_argument('--device', type=str, default=None)
     parser.add_argument('--image-size', type=int, default=224)
     parser.add_argument('--temperature', type=float, default=DEFAULT_TEMPERATURE)
