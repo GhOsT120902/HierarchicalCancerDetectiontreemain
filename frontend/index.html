@@ -3,38 +3,227 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | MedAI Dashboard</title>
+  <title>MedAI Dashboard - Medical Scan Analysis</title>
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-</head> index.html
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
 <body>
-  
-  <div class="auth-container">
-    <div class="auth-card glass">
+
+  <!-- Background Particles -->
+  <div class="bg-particles">
+    <div class="particle p1"></div>
+    <div class="particle p2"></div>
+    <div class="particle p3"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- LOGIN PAGE -->
+  <div class="auth-container" id="authContainer">
+    <div class="auth-card glass-morphism">
       <div class="auth-logo">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
         </svg>
         MedAI
       </div>
+
       <p class="auth-subtitle">Intelligent scan analysis powered by deep learning.</p>
-      
-      <form id="loginForm" class="auth-form">
+
+      <form id="loginForm" class="auth-form" novalidate>
         <div class="input-group">
           <label for="email">Email Address</label>
-          <input type="email" id="email" class="input-field" placeholder="doc@medai.com" required>
+          <input type="email" id="email" class="input-field" placeholder="doc@medai.com" required autocomplete="email">
         </div>
-        
+
         <div class="input-group">
           <label for="password">Password</label>
-          <input type="password" id="password" class="input-field" placeholder="••••••••" required>
+          <div style="position:relative;">
+            <input type="password" id="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" style="padding-right: 48px;">
+            <button type="button" id="togglePwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px;transition:var(--transition);">
+              <i class="fa-solid fa-eye" id="eyeIcon"></i>
+            </button>
+          </div>
         </div>
-        
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-          Sign In Target System
+
+        <div style="text-align:right;margin-top:-8px;">
+          <a href="#" style="font-size:0.85rem;color:var(--primary-cyan);text-decoration:none;">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="primary-btn large-btn" id="signInBtn">
+          <i class="fa-solid fa-microchip" id="btnIcon"></i>
+          <span id="btnLabel">Sign In</span>
         </button>
+
+        <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
+          Don't have an account?
+          <a href="#" style="color:var(--primary-cyan);text-decoration:none;">Request access</a>
+        </p>
       </form>
     </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard-container" id="dashboardContainer" style="display: none;">
+    <!-- Sidebar -->
+    <aside class="sidebar glass-morphism" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span>MedAI</span>
+        </div>
+        <button class="close-sidebar" id="closeSidebar"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+        <a href="#" class="nav-item"><i class="fa-solid fa-history"></i> History</a>
+        <a href="#" class="nav-item"><i class="fa-solid fa-cog"></i> Settings</a>
+        <a href="#" class="nav-item"><i class="fa-solid fa-question-circle"></i> Help</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="theme-toggle" id="themeToggle"><i class="fa-solid fa-sun"></i> <span id="themeToggleText">Light Mode</span></button>
+        <button class="logout-btn" id="logoutBtn" style="width: 100%; margin-top: 10px; padding: 10px; background: rgba(255,71,87,0.1); border: 1px solid var(--danger); color: var(--danger); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition);">
+          <i class="fa-solid fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header glass-morphism">
+        <div class="header-left">
+          <button class="menu-toggle" id="menuToggle"><i class="fa-solid fa-bars"></i></button>
+          <h1>Medical Scan Analysis</h1>
+        </div>
+        <div class="header-right">
+          <div class="request-state" id="requestState">Ready</div>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <div class="content">
+        <!-- Model Status -->
+        <section class="status-panel glass-inner" id="modelStatus">
+          <h2><i class="fa-solid fa-server"></i> Platform Status</h2>
+          <p>Loading...</p>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-section glass-inner">
+          <div class="drag-drop-zone" id="dragDropZone">
+            <div id="previewPlaceholder" style="display: flex;">
+              <div class="placeholder-content">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <p>Drag and drop your medical scan here</p>
+                <span>or</span>
+              </div>
+            </div>
+            <img id="imagePreview" style="display: none; max-height: 300px; border-radius: 8px;">
+          </div>
+
+          <form id="predictionForm" class="prediction-form">
+            <div class="form-row">
+              <input type="file" id="imageInput" accept="image/*" style="display: none;">
+              <button type="button" class="primary-btn" onclick="document.getElementById('imageInput').click()">
+                <i class="fa-solid fa-upload"></i> Select Image
+              </button>
+              <button type="submit" class="primary-btn" id="submitButton">
+                <i class="fa-solid fa-microchip"></i> Run Intelligent Pipeline
+              </button>
+            </div>
+
+            <div class="form-row">
+              <label style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="manualOverride">
+                <span>Manual Override</span>
+              </label>
+              <select id="organOverride" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border-glass);">
+                <option>No override</option>
+              </select>
+            </div>
+
+            <div id="uploadProgressWrapper" style="display: none; margin-top: 15px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span id="uploadFileName">File</span>
+                <span id="uploadPercentage">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="uploadProgressBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section">
+          <!-- Decision Banner -->
+          <div class="decision-banner glass-inner" id="finalDecisionPanel">
+            <div class="empty-icon"><i class="fa-solid fa-box-open"></i></div>
+            <h3>No Results Yet</h3>
+            <p>Upload an image to see analysis results.</p>
+          </div>
+
+          <!-- Warnings -->
+          <div id="warningList" style="margin: 20px 0;"></div>
+
+          <!-- Stage Cards -->
+          <div class="cards-grid">
+            <div class="mini-card glass-inner empty" id="modalityCard">
+              <h3>Step 0: Modality</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div class="mini-card glass-inner empty" id="tissueCard">
+              <h3>Level 1: Tissue</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div class="mini-card glass-inner empty" id="normalityCard">
+              <h3>Level 2: Normality</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div class="mini-card glass-inner empty" id="subtypeCard">
+              <h3>Level 3: Subtype</h3>
+              <p>No result available for this stage.</p>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="charts-grid">
+            <div class="chart-card glass-inner empty" id="organChart">
+              <h3>Organ Probability Graph</h3>
+              <p>No chart data available.</p>
+            </div>
+            <div class="chart-card glass-inner empty" id="subtypeChart">
+              <h3>Subtype Probability Graph</h3>
+              <p>No chart data available.</p>
+            </div>
+          </div>
+
+          <!-- Grad-CAM -->
+          <div class="chart-card gradcam-card glass-inner empty" id="gradcamPanel">
+            <h3>Grad-CAM Review</h3>
+            <p>No Grad-CAM visual available for this prediction.</p>
+          </div>
+
+          <!-- Report Section -->
+          <div class="report-section glass-inner">
+            <h3><i class="fa-solid fa-file-pdf"></i> Report Generation</h3>
+            <button type="button" class="primary-btn" id="reportButton" disabled>
+              <i class="fa-solid fa-file-pdf"></i> Export Report
+            </button>
+            <p id="reportStatus"><i class="fa-solid fa-circle-info"></i> Reports are saved to your Documents folder.</p>
+          </div>
+
+          <!-- JSON Output -->
+          <div class="json-output glass-inner">
+            <h3>Raw JSON Output</h3>
+            <pre id="jsonOutput">{}</pre>
+          </div>
+        </section>
+      </div>
+    </main>
   </div>
 
   <script src="app.js"></script>
