@@ -3,39 +3,236 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | MedAI Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-</head> index.html
+  <title>MedAI | Hierarchical Cancer Inference</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
 <body>
-  
-  <div class="auth-container">
-    <div class="auth-card glass">
-      <div class="auth-logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-        </svg>
-        MedAI
-      </div>
-      <p class="auth-subtitle">Intelligent scan analysis powered by deep learning.</p>
-      
-      <form id="loginForm" class="auth-form">
-        <div class="input-group">
-          <label for="email">Email Address</label>
-          <input type="email" id="email" class="input-field" placeholder="doc@medai.com" required>
-        </div>
-        
-        <div class="input-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" class="input-field" placeholder="••••••••" required>
-        </div>
-        
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-          Sign In Target System
-        </button>
-      </form>
-    </div>
+
+  <div class="bg-particles">
+    <div class="particle p1"></div>
+    <div class="particle p2"></div>
+    <div class="particle p3"></div>
   </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar glass-morphism" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-circle"><i class="fa-solid fa-dna"></i></div>
+      <h2>MedAI</h2>
+      <button class="icon-btn" id="closeSidebar" style="margin-left:auto;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <ul class="nav-links">
+      <li class="active"><a href="#"><i class="fa-solid fa-microchip"></i> Inference</a></li>
+      <li><a href="#results"><i class="fa-solid fa-chart-bar"></i> Results</a></li>
+      <li><a href="#gradcam"><i class="fa-solid fa-layer-group"></i> Grad-CAM</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="icon-text-btn" id="themeToggle">
+        <i class="fa-solid fa-sun"></i>
+        <span id="themeToggleText">Light Mode</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-navbar glass-morphism">
+      <div class="nav-left">
+        <button class="icon-btn" id="menuToggle"><i class="fa-solid fa-bars"></i></button>
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search documentation...">
+        </div>
+      </div>
+      <div class="nav-right">
+        <div class="nav-status">
+          <span class="status-dot pulsing"></span>
+          <span id="requestState" class="badge">Ready</span>
+        </div>
+        <div class="profile-menu">
+          <div class="profile-details">
+            <span class="profile-name">MedAI System</span>
+            <span class="profile-role">AI Diagnostics</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-shell">
+
+      <!-- Hero -->
+      <section class="hero glass-morphism">
+        <div class="hero-left">
+          <div class="eyebrow"><i class="fa-solid fa-circle-nodes"></i> Deep Learning Pipeline</div>
+          <h1>Hierarchical Cancer<br>Inference System</h1>
+          <p class="hero-copy">Upload a histopathology image to classify tissue type, assess normality, and identify cancer subtypes using ResNet50 deep learning models.</p>
+          <div class="hero-actions">
+            <span class="status-pill tone-green"><i class="fa-solid fa-circle-check"></i> Models Ready</span>
+            <span class="status-pill tone-blue"><i class="fa-solid fa-microscope"></i> 28 Subtypes</span>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="floating-panels">
+            <div class="float-card glass-morphism card-1">
+              <i class="fa-solid fa-brain accent-cyan"></i>
+              <div><h4>Organs Detected</h4><span>8</span></div>
+            </div>
+            <div class="float-card glass-morphism card-2">
+              <i class="fa-solid fa-vials accent-blue"></i>
+              <div><h4>Cancer Subtypes</h4><span>28</span></div>
+            </div>
+          </div>
+          <div id="modelStatus" class="status-panel glass-inner">
+            <h2><i class="fa-solid fa-server"></i> Platform Status</h2>
+            <p style="color:var(--text-muted)">Loading model status...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Layout -->
+      <div class="lay-out">
+
+        <!-- Upload Card -->
+        <aside>
+          <div class="card glass-morphism">
+            <div class="card-header">
+              <h2><i class="fa-solid fa-upload"></i> Upload Image</h2>
+            </div>
+
+            <form id="predictionForm">
+
+              <!-- Drag & Drop Zone -->
+              <div class="drag-drop-zone" id="dragDropZone">
+                <label class="file-picker" for="imageInput">
+                  <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                  <span>Drag & drop or click to upload</span>
+                  <span class="upload-hint">PNG, JPG, TIFF &bull; Min 224×224 px</span>
+                  <input type="file" id="imageInput" accept="image/*">
+                </label>
+              </div>
+
+              <!-- Upload Progress -->
+              <div class="upload-progress-wrapper" id="uploadProgressWrapper" style="display:none;">
+                <div class="progress-details">
+                  <span id="uploadFileName">file.jpg</span>
+                  <span id="uploadPercentage">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" id="uploadProgressBar"></div>
+                </div>
+              </div>
+
+              <!-- Image Preview -->
+              <div class="preview-shell">
+                <img id="imagePreview" alt="Preview">
+                <div class="preview-placeholder" id="previewPlaceholder">
+                  <i class="fa-solid fa-image"></i>
+                  <span>No image selected</span>
+                </div>
+              </div>
+
+              <!-- Controls -->
+              <div class="controls">
+                <label class="custom-checkbox">
+                  <input type="checkbox" id="manualOverride">
+                  <span class="checkmark"></span>
+                  <span>Manual override — proceed past uncertain modality/tissue detection</span>
+                </label>
+
+                <div class="select-wrapper">
+                  <label for="organOverride">Organ override (optional)</label>
+                  <div class="custom-select">
+                    <i class="select-icon fa-solid fa-sitemap"></i>
+                    <select id="organOverride">
+                      <option value="">No override</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="action-buttons">
+                <button type="submit" id="submitButton" class="primary-btn large-btn pulse-glow">
+                  <i class="fa-solid fa-microchip"></i> Run Intelligent Pipeline
+                </button>
+                <button type="button" id="reportButton" class="secondary-btn large-btn" disabled>
+                  <i class="fa-solid fa-file-pdf"></i> Export Report
+                </button>
+                <p class="report-status" id="reportStatus">
+                  <i class="fa-solid fa-circle-info"></i> Reports are saved to your Documents folder.
+                </p>
+              </div>
+
+            </form>
+          </div>
+        </aside>
+
+        <!-- Results Panel -->
+        <section id="results">
+
+          <!-- Final Decision Banner -->
+          <div id="finalDecisionPanel" class="decision-banner empty-state glass-inner">
+            <div class="empty-icon"><i class="fa-solid fa-box-open"></i></div>
+            <h3>No Results Yet</h3>
+            <p>Upload an image to see modality validation, tissue routing, normality, subtype analysis, and explanations.</p>
+          </div>
+
+          <!-- Warnings -->
+          <div id="warningList"></div>
+
+          <!-- Stage Cards -->
+          <div class="stage-grid">
+            <div id="modalityCard" class="mini-card glass-inner empty">
+              <h3>Step 0: Modality</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div id="tissueCard" class="mini-card glass-inner empty">
+              <h3>Level 1: Tissue</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div id="normalityCard" class="mini-card glass-inner empty">
+              <h3>Level 2: Normality</h3>
+              <p>No result available for this stage.</p>
+            </div>
+            <div id="subtypeCard" class="mini-card glass-inner empty">
+              <h3>Level 3: Subtype</h3>
+              <p>No result available for this stage.</p>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="charts-row chart-stack">
+            <div id="organChart" class="chart-card glass-inner empty">
+              <h3>Organ Probability Graph</h3>
+              <p>No chart data available.</p>
+            </div>
+            <div id="subtypeChart" class="chart-card glass-inner empty">
+              <h3>Subtype Probability Graph</h3>
+              <p>No chart data available.</p>
+            </div>
+          </div>
+
+          <!-- Grad-CAM -->
+          <div id="gradcamPanel" class="chart-card gradcam-card glass-inner empty" style="margin-bottom:24px;">
+            <h3>Grad-CAM Review</h3>
+            <p>No Grad-CAM visual available for this prediction.</p>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="card glass-morphism" style="margin-bottom:24px;">
+            <div class="card-header">
+              <h2><i class="fa-solid fa-code"></i> Raw JSON Output</h2>
+            </div>
+            <pre id="jsonOutput" style="white-space:pre-wrap;word-break:break-all;font-size:0.8rem;color:var(--text-muted);max-height:400px;overflow:auto;">{}</pre>
+          </div>
+
+        </section>
+      </div>
+    </div>
+  </main>
 
   <script src="app.js"></script>
 </body>
