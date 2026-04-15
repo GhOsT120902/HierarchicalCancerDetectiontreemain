@@ -1,3 +1,4 @@
+document.addEventListener("DOMContentLoaded", () => {
 const form = document.getElementById("predictionForm");
 const imageInput = document.getElementById("imageInput");
 const imagePreview = document.getElementById("imagePreview");
@@ -390,3 +391,4 @@ reportButton.addEventListener("click", async () => {
 
 resetResults();
 fetchHealth();
+}); // end DOMContentLoaded
