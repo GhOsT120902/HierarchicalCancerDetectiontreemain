@@ -40,8 +40,10 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
 
     try:
         from evaluate_accuracy import collect_image_paths, evaluate, compute_metrics, DEFAULT_TEST_DATA_DIR
-        log('Loading test images...')
-        entries = collect_image_paths(DEFAULT_TEST_DATA_DIR, logger=logger)
+        organ_filter = server._eval_organ_filter
+        scope_label = f'organ "{organ_filter}"' if organ_filter else 'all organs'
+        log(f'Loading test images ({scope_label})...')
+        entries = collect_image_paths(DEFAULT_TEST_DATA_DIR, logger=logger, organ_filter=organ_filter or None)
         log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
 
         original_gradcam = server.engine._generate_gradcam
@@ -75,6 +77,7 @@ class InferenceHTTPServer(ThreadingHTTPServer):
         self._eval_error = None
         self._eval_log: list[str] = []
         self._eval_lock = threading.Lock()
+        self._eval_organ_filter: str | None = None
 
 
 class InferenceRequestHandler(BaseHTTPRequestHandler):
@@ -308,9 +311,15 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
                 'metrics': self.server._eval_metrics,
                 'error': self.server._eval_error,
                 'log': self.server._eval_log[-80:],
+                'organ_filter': self.server._eval_organ_filter,
             })
 
     def _handle_evaluate_post(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError:
+            body = {}
+        organ_filter: str | None = body.get('organ_filter') or None
         with self.server._eval_lock:
             if self.server._eval_status == 'running':
                 self._send_json({'ok': False, 'error': 'Evaluation is already running.'})
@@ -318,7 +327,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self.server._eval_status = 'running'
             self.server._eval_metrics = None
             self.server._eval_error = None
-            self.server._eval_log = ['Starting evaluation...']
+            self.server._eval_organ_filter = organ_filter
+            scope_label = f'"{organ_filter}"' if organ_filter else 'all organs'
+            self.server._eval_log = [f'Starting evaluation ({scope_label})...']
         thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
         thread.start()
         self._send_json({'ok': True, 'status': 'running'})

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedAI Dashboard - Medical Scan Analysis</title>
-  <link rel="stylesheet" href="/styles.css?v=7">
+  <link rel="stylesheet" href="/styles.css?v=8">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -344,8 +344,19 @@
               <h2 style="margin:0;"><i class="fa-solid fa-flask-vial"></i> Model Accuracy Evaluation</h2>
               <p style="color:var(--text-muted); margin-top:6px; font-size:0.9rem;">Runs all test images through the inference pipeline and computes accuracy at each stage. This may take a few minutes on CPU.</p>
             </div>
-            <div style="display:flex; gap:12px; align-items:center;">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
               <span id="evalStatusBadge" class="status-pill">Idle</span>
+              <select id="evalOrganSelect" style="padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--glass-border); background:var(--glass-bg); color:var(--text-primary); font-size:0.85rem; cursor:pointer; backdrop-filter:blur(8px);">
+                <option value="">All Organs</option>
+                <option value="ALL">ALL (Acute Lymphoblastic Leukaemia)</option>
+                <option value="Brain Cancer">Brain Cancer</option>
+                <option value="Breast Cancer">Breast Cancer</option>
+                <option value="Cervical Cancer">Cervical Cancer</option>
+                <option value="Kidney Cancer">Kidney Cancer</option>
+                <option value="Lung and Colon Cancer">Lung &amp; Colon Cancer</option>
+                <option value="Lymphoma">Lymphoma</option>
+                <option value="Oral Cancer">Oral Cancer</option>
+              </select>
               <button id="runEvalBtn" class="primary-btn"><i class="fa-solid fa-play"></i> Run Evaluation</button>
             </div>
           </div>
@@ -569,6 +580,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=7"></script>
+  <script src="/app.js?v=8"></script>
 </body>
 </html>

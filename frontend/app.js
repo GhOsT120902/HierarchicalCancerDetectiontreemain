@@ -995,6 +995,7 @@ if (navSettings) navSettings.addEventListener('click', e => { e.preventDefault()
 
 // ── Model Accuracy Evaluation ──────────────────────────────────────────────
 const runEvalBtn = document.getElementById('runEvalBtn');
+const evalOrganSelect = document.getElementById('evalOrganSelect');
 const evalStatusBadge = document.getElementById('evalStatusBadge');
 const evalProgressSection = document.getElementById('evalProgressSection');
 const evalLog = document.getElementById('evalLog');
@@ -1043,8 +1044,24 @@ function renderEvalPerClassTable(title, perClass) {
     </section>`;
 }
 
-function renderEvalResults(metrics) {
+function renderEvalResults(metrics, organFilter) {
   if (!metrics || !evalMetricCards) return;
+
+  const scopeLabel = organFilter ? organFilter : 'All Organs';
+  const scopeHtml = `<p style="color:var(--text-muted); font-size:0.85rem; margin:-4px 0 12px;">
+    <i class="fa-solid fa-filter" style="margin-right:6px;"></i>Scope: <strong style="color:var(--text-primary);">${escapeHtml(scopeLabel)}</strong>
+    &bull; ${metrics.total_images ?? '?'} images evaluated
+  </p>`;
+  if (evalMetricCards) {
+    const heading = evalMetricCards.previousElementSibling;
+    let scopeEl = document.getElementById('evalScopeLabel');
+    if (!scopeEl) {
+      scopeEl = document.createElement('div');
+      scopeEl.id = 'evalScopeLabel';
+      evalResultsSection && evalResultsSection.insertBefore(scopeEl, evalResultsSection.firstChild);
+    }
+    scopeEl.innerHTML = scopeHtml;
+  }
 
   const levels = [
     { key: 'organ', label: 'Level 1 — Organ', icon: 'fa-magnifying-glass', desc: 'Tissue / organ routing' },
@@ -1076,7 +1093,10 @@ function renderEvalResults(metrics) {
 }
 
 function applyEvalState(data) {
-  const { status, metrics, error, log } = data;
+  const { status, metrics, error, log, organ_filter } = data;
+  if (organ_filter !== undefined && evalOrganSelect && !evalOrganSelect.disabled) {
+    evalOrganSelect.value = organ_filter || '';
+  }
   setEvalBadge(status);
 
   if (log && evalLog) evalLog.textContent = log.join('\n');
@@ -1085,20 +1105,24 @@ function applyEvalState(data) {
     if (evalProgressSection) evalProgressSection.style.display = '';
     if (evalResultsSection) evalResultsSection.style.display = 'none';
     if (evalErrorSection) evalErrorSection.style.display = 'none';
+    if (evalOrganSelect) evalOrganSelect.disabled = true;
     if (runEvalBtn) { runEvalBtn.disabled = true; runEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...'; }
     if (evalLog) evalLog.scrollTop = evalLog.scrollHeight;
   } else if (status === 'done') {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
     if (evalErrorSection) evalErrorSection.style.display = 'none';
+    if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Re-run Evaluation'; }
-    renderEvalResults(metrics);
+    renderEvalResults(metrics, organ_filter);
   } else if (status === 'error') {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
     if (evalErrorSection) { evalErrorSection.style.display = ''; }
     if (evalErrorMsg) evalErrorMsg.textContent = error || 'Unknown error.';
+    if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
   } else {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
+    if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
   }
 }
@@ -1121,22 +1145,36 @@ async function pollEvalStatus() {
 if (runEvalBtn) {
   runEvalBtn.addEventListener('click', async () => {
     if (evalPollTimer) clearTimeout(evalPollTimer);
+    const organFilter = evalOrganSelect ? evalOrganSelect.value : '';
     runEvalBtn.disabled = true;
     runEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting...';
+    if (evalOrganSelect) evalOrganSelect.disabled = true;
     if (evalResultsSection) evalResultsSection.style.display = 'none';
     if (evalErrorSection) evalErrorSection.style.display = 'none';
     try {
-      const r = await fetch('/api/evaluate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const r = await fetch('/api/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organ_filter: organFilter || null }),
+      });
       const data = await r.json();
-      if (!data.ok) { showToast(data.error || 'Failed to start evaluation', 'error'); runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; return; }
+      if (!data.ok) {
+        showToast(data.error || 'Failed to start evaluation', 'error');
+        runEvalBtn.disabled = false;
+        runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation';
+        if (evalOrganSelect) evalOrganSelect.disabled = false;
+        return;
+      }
       if (evalProgressSection) evalProgressSection.style.display = '';
       setEvalBadge('running');
-      showToast('Evaluation started — this may take a few minutes', 'success');
+      const scopeMsg = organFilter ? `Evaluating ${organFilter}` : 'Evaluation started';
+      showToast(`${scopeMsg} — this may take a few minutes`, 'success');
       evalPollTimer = setTimeout(pollEvalStatus, 2500);
     } catch (err) {
       showToast('Could not reach server', 'error');
       runEvalBtn.disabled = false;
       runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation';
+      if (evalOrganSelect) evalOrganSelect.disabled = false;
     }
   });
 }

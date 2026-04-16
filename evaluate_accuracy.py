@@ -74,7 +74,7 @@ def build_ground_truth(
 
 
 def collect_image_paths(
-    test_data_dir: Path, logger=None
+    test_data_dir: Path, logger=None, organ_filter: str | None = None
 ) -> list[tuple[Path, dict[str, object]]]:
     entries: list[tuple[Path, dict[str, object]]] = []
     image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
@@ -84,6 +84,8 @@ def collect_image_paths(
         if not organ_dir.is_dir():
             continue
         organ_folder = organ_dir.name
+        if organ_filter and organ_folder != organ_filter:
+            continue
         for subtype_dir in sorted(organ_dir.iterdir()):
             if not subtype_dir.is_dir():
                 continue
