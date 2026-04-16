@@ -348,6 +348,11 @@ class HierarchicalCancerInference:
                 modality['proceed'] = True
                 warnings.append('Manual override used to continue past uncertain modality detection.')
                 return True, validation_payload, warnings, modality, image_tensor
+            if modality['status'] == 'REJECTED' and manual_override:
+                modality['override_used'] = True
+                modality['proceed'] = True
+                warnings.append('Manual override used to bypass rejected modality detection. Verify this is a valid histopathology image.')
+                return True, validation_payload, warnings, modality, image_tensor
             return False, validation_payload, warnings, modality, image_tensor
 
         if not is_histopathology_specific_failure(validation_report.failure_code):
