@@ -124,7 +124,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         try:
             pdf = build_pdf_bytes(result=result, image_name=filename, image_bytes=image_bytes)
         except Exception as exc:
-            self._send_json({'ok': False, 'error': f'Report generation failed: {exc}'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            import logging
+            logging.getLogger('hierarchical_inference').error('Report generation error for %s: %s', filename, exc, exc_info=True)
+            self._send_json({'ok': False, 'error': 'Report generation failed. Please try again.'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_pdf(pdf, download_name)
 
@@ -167,7 +169,7 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def _send_pdf(self, pdf_bytes: bytes, filename: str) -> None:
-        safe_name = filename.replace('"', '_').replace('\\', '_')
+        safe_name = ''.join(c if ord(c) >= 32 and c not in ('"', '\\', '/') else '_' for c in filename) or 'report.pdf'
         self.send_response(HTTPStatus.OK)
         self.send_header('Content-Type', 'application/pdf')
         self.send_header('Content-Disposition', f'attachment; filename="{safe_name}"')
