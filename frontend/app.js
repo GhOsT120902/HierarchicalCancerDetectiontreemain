@@ -654,6 +654,127 @@ if (reportButton) {
   });
 }
 
+// ── Test Data Browser ──────────────────────────────────────────────────────
+(function () {
+  const toggle = document.getElementById('testBrowserToggle');
+  const panel = document.getElementById('testBrowserPanel');
+  const organsEl = document.getElementById('testBrowserOrgans');
+  const subtypesEl = document.getElementById('testBrowserSubtypes');
+  if (!toggle || !panel) return;
+
+  let testData = null;
+  let selectedOrgan = null;
+  let selectedThumb = null;
+  let loaded = false;
+
+  function formatLabel(raw) {
+    return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function renderSubtypes(organ) {
+    selectedOrgan = organ;
+    if (!testData || !testData.organs[organ]) return;
+    const subtypes = testData.organs[organ].subtypes;
+    subtypesEl.innerHTML = '';
+    for (const [sub, files] of Object.entries(subtypes)) {
+      const group = document.createElement('div');
+      group.className = 'test-subtype-group';
+      const label = document.createElement('div');
+      label.className = 'test-subtype-label';
+      label.textContent = formatLabel(sub);
+      group.appendChild(label);
+      const grid = document.createElement('div');
+      grid.className = 'test-thumb-grid';
+      for (const filename of files) {
+        const relPath = encodeURIComponent(`${organ}/${sub}/${filename}`);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'test-thumb';
+        btn.title = filename;
+        btn.dataset.path = `${organ}/${sub}/${filename}`;
+        const img = document.createElement('img');
+        img.src = `/api/test-image?path=${relPath}`;
+        img.loading = 'lazy';
+        img.alt = filename;
+        const lbl = document.createElement('span');
+        lbl.className = 'thumb-label';
+        lbl.textContent = filename;
+        btn.appendChild(img);
+        btn.appendChild(lbl);
+        btn.addEventListener('click', () => selectTestImage(btn));
+        grid.appendChild(btn);
+      }
+      group.appendChild(grid);
+      subtypesEl.appendChild(group);
+    }
+  }
+
+  function renderOrgans() {
+    organsEl.innerHTML = '';
+    const organs = Object.keys(testData.organs);
+    organs.forEach((organ, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'test-organ-tab' + (i === 0 ? ' active' : '');
+      btn.textContent = organ;
+      btn.addEventListener('click', () => {
+        organsEl.querySelectorAll('.test-organ-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderSubtypes(organ);
+      });
+      organsEl.appendChild(btn);
+    });
+    if (organs.length) renderSubtypes(organs[0]);
+  }
+
+  async function loadTestData() {
+    if (loaded) return;
+    loaded = true;
+    organsEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;padding:8px 0;">Loading...</span>';
+    try {
+      const r = await fetch('/api/test-images');
+      const data = await r.json();
+      if (data.ok) {
+        testData = data;
+        renderOrgans();
+      } else {
+        organsEl.innerHTML = '<span style="color:var(--danger);font-size:0.85rem;">Failed to load test data.</span>';
+      }
+    } catch (_) {
+      loaded = false;
+      organsEl.innerHTML = '<span style="color:var(--danger);font-size:0.85rem;">Could not connect to server.</span>';
+    }
+  }
+
+  async function selectTestImage(btn) {
+    const path = btn.dataset.path;
+    if (!path || !imageInput) return;
+    if (selectedThumb) selectedThumb.classList.remove('selected');
+    btn.classList.add('selected');
+    selectedThumb = btn;
+    try {
+      const r = await fetch(`/api/test-image?path=${encodeURIComponent(path)}`);
+      const blob = await r.blob();
+      const filename = path.split('/').pop();
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      imageInput.files = dt.files;
+      imageInput.dispatchEvent(new Event('change'));
+      resetResults();
+    } catch (_) {
+      showToast('Could not load test image', 'error');
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    const open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : '';
+    toggle.classList.toggle('open', !open);
+    if (!open) loadTestData();
+  });
+})();
+
 // ── Nav Tab Switching ──────────────────────────────────────────────────────
 const navDashboard = document.getElementById('navDashboard');
 const navAccuracy = document.getElementById('navAccuracy');

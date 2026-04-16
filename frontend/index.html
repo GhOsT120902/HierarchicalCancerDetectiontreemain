@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedAI Dashboard - Medical Scan Analysis</title>
-  <link rel="stylesheet" href="/styles.css?v=4">
+  <link rel="stylesheet" href="/styles.css?v=5">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -122,6 +122,18 @@
               </div>
             </div>
             <img id="imagePreview" style="display: none; max-height: 300px; border-radius: 8px;">
+          </div>
+
+          <!-- Test Data Browser -->
+          <div id="testBrowserSection" style="margin-top:12px;">
+            <button type="button" id="testBrowserToggle" class="test-browser-toggle">
+              <span><i class="fa-solid fa-folder-open"></i> Browse Test Data Samples</span>
+              <i class="fa-solid fa-chevron-down" id="testBrowserChevron"></i>
+            </button>
+            <div id="testBrowserPanel" style="display:none;">
+              <div id="testBrowserOrgans" class="test-organ-tabs"></div>
+              <div id="testBrowserSubtypes" class="test-subtype-groups"></div>
+            </div>
           </div>
 
           <form id="predictionForm" class="prediction-form">
@@ -264,6 +276,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=3"></script>
+  <script src="/app.js?v=4"></script>
 </body>
 </html>

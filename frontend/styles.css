@@ -820,3 +820,112 @@ body.light-theme #organOverride {
     .cards-grid, .charts-grid { grid-template-columns: 1fr; }
     .form-row { flex-direction: column; }
 }
+
+/* ── Test Data Browser ──────────────────────────────────────────────────── */
+.test-browser-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 0;
+}
+.test-browser-toggle:hover { border-color: var(--border-hover); color: var(--text-main); }
+.test-browser-toggle i.fa-chevron-down { transition: transform 0.25s; }
+.test-browser-toggle.open i.fa-chevron-down { transform: rotate(180deg); }
+
+.test-organ-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 0 8px;
+}
+.test-organ-tab {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+.test-organ-tab:hover { border-color: var(--border-hover); color: var(--text-main); }
+.test-organ-tab.active {
+    background: var(--primary-cyan-dim);
+    border-color: var(--primary-cyan);
+    color: var(--primary-cyan);
+    font-weight: 600;
+}
+
+.test-subtype-groups {
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.test-subtype-group { margin-bottom: 14px; }
+.test-subtype-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    padding-left: 2px;
+}
+.test-thumb-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.test-thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background: rgba(255,255,255,0.04);
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    flex-shrink: 0;
+}
+.test-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.test-thumb:hover { border-color: var(--primary-cyan); transform: scale(1.06); }
+.test-thumb.selected { border-color: var(--success); box-shadow: 0 0 8px rgba(0,230,118,0.4); }
+.test-thumb .thumb-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    font-size: 0.55rem;
+    color: #fff;
+    text-align: center;
+    padding: 2px 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.test-thumb:hover .thumb-label { opacity: 1; }
+
+/* light theme overrides */
+body.light-mode .test-browser-toggle { background: rgba(0,0,0,0.04); }
+body.light-mode .test-organ-tab { color: #64748b; }
+body.light-mode .test-subtype-label { color: #64748b; }
+body.light-mode .test-thumb { background: rgba(0,0,0,0.04); }

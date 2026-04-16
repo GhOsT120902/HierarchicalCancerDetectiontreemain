@@ -7,7 +7,8 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+import mimetypes
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .inference_engine import HierarchicalCancerInference
 from .report_generator import build_pdf_bytes
@@ -24,6 +25,8 @@ from .utils import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / 'frontend'
+TEST_DATA_DIR = PROJECT_ROOT / 'Test Data' / 'Test Data'
+_IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
 
 
 def _run_evaluation(server: 'InferenceHTTPServer') -> None:
@@ -83,6 +86,12 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/evaluate':
             self._handle_evaluate_get()
+            return
+        if parsed.path == '/api/test-images':
+            self._handle_test_images()
+            return
+        if parsed.path == '/api/test-image':
+            self._handle_test_image(parsed.query)
             return
         if parsed.path in {'/', '/index.html'}:
             self._serve_file(self.server.frontend_dir / 'index.html', 'text/html; charset=utf-8')
@@ -176,6 +185,48 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': False, 'error': 'Report generation failed. Please try again.'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_pdf(pdf, download_name)
+
+    def _handle_test_images(self) -> None:
+        organs: dict[str, dict] = {}
+        if TEST_DATA_DIR.is_dir():
+            for organ_dir in sorted(TEST_DATA_DIR.iterdir()):
+                if not organ_dir.is_dir():
+                    continue
+                subtypes: dict[str, list[str]] = {}
+                for sub_dir in sorted(organ_dir.iterdir()):
+                    if not sub_dir.is_dir():
+                        continue
+                    files = sorted(
+                        f.name for f in sub_dir.iterdir()
+                        if f.is_file() and f.suffix.lower() in _IMAGE_EXTS
+                    )
+                    if files:
+                        subtypes[sub_dir.name] = files
+                if subtypes:
+                    organs[organ_dir.name] = {'subtypes': subtypes}
+        self._send_json({'ok': True, 'organs': organs})
+
+    def _handle_test_image(self, query_string: str) -> None:
+        params = parse_qs(query_string or '')
+        path_parts = params.get('path', [''])
+        rel = unquote(path_parts[0]).lstrip('/').replace('..', '')
+        img_path = (TEST_DATA_DIR / rel).resolve()
+        try:
+            img_path.relative_to(TEST_DATA_DIR.resolve())
+        except ValueError:
+            self._send_json({'ok': False, 'error': 'Invalid path'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if not img_path.is_file() or img_path.suffix.lower() not in _IMAGE_EXTS:
+            self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
+            return
+        mime = mimetypes.guess_type(img_path.name)[0] or 'application/octet-stream'
+        data = img_path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', mime)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Cache-Control', 'public, max-age=3600')
+        self.end_headers()
+        self.wfile.write(data)
 
     def _handle_evaluate_get(self) -> None:
         with self.server._eval_lock:
