@@ -179,14 +179,11 @@ if (forgotForm) {
       const data = await res.json();
       if (data.ok) {
         _forgotEmail = email;
-        const codeDisplay = document.getElementById('resetCodeDisplay');
-        const codeVal = document.getElementById('resetCodeValue');
-        if (codeDisplay) codeDisplay.style.display = '';
-        if (codeVal) codeVal.textContent = data.code;
         forgotForm.reset();
+        showToast("Reset code sent — check your inbox.", "success");
         showAuthPanel('resetPanel');
       } else {
-        showToast(data.error || "Failed to generate reset code.", "error");
+        showToast(data.error || "Failed to send reset code.", "error");
       }
     } catch (_) {
       showToast("Could not reach the server.", "error");
@@ -221,8 +218,6 @@ if (resetForm) {
         showToast("Password reset successfully! Please sign in.", "success");
         resetForm.reset();
         _forgotEmail = '';
-        const codeDisplay = document.getElementById('resetCodeDisplay');
-        if (codeDisplay) codeDisplay.style.display = 'none';
         showAuthPanel('loginPanel');
       } else {
         showToast(data.error || "Reset failed.", "error");

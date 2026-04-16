@@ -100,7 +100,12 @@ def create_reset_code(email: str) -> tuple[bool, str, str]:
         codes = _load_reset_codes()
         codes[email] = {'code': code, 'expires_at': time.time() + RESET_EXPIRY_SECONDS}
         _save_reset_codes(codes)
-    return True, code, ''
+
+    from .mailer import send_reset_code
+    email_ok, email_err = send_reset_code(email, code)
+    if not email_ok:
+        return False, '', email_err
+    return True, '', ''
 
 
 def reset_password(email: str, code: str, new_password: str) -> tuple[bool, str]:

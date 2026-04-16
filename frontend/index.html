@@ -113,10 +113,11 @@
 
       <!-- ── PANEL: Reset Password – Step 2 (enter code + new password) ── -->
       <div id="resetPanel" style="display:none;">
-        <p class="auth-subtitle" style="margin-bottom:6px;">Enter your reset code and new password.</p>
-        <div id="resetCodeDisplay" style="display:none; margin-bottom:16px; padding:12px 14px; background:rgba(0,240,255,0.08); border:1px solid var(--primary-cyan); border-radius:10px; text-align:center;">
-          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:6px;">Your reset code (valid 15 minutes):</p>
-          <span id="resetCodeValue" style="font-size:2rem; font-weight:700; letter-spacing:0.2em; color:var(--primary-cyan); font-family:monospace;"></span>
+        <div style="margin-bottom:16px; padding:12px 14px; background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); border-radius:10px; text-align:center;">
+          <p style="margin:0; font-size:0.85rem; color:var(--text-muted);">
+            <i class="fa-solid fa-envelope" style="color:var(--primary-cyan);"></i>
+            A 6-digit reset code has been sent to your email. Check your inbox (and spam folder).
+          </p>
         </div>
         <form id="resetForm" class="auth-form" novalidate>
           <div class="input-group">

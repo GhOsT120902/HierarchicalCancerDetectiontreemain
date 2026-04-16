@@ -228,8 +228,8 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
         email = str(body.get('email', ''))
-        ok, code, error = create_reset_code(email)
-        self._send_json({'ok': ok, 'code': code if ok else '', 'error': error})
+        ok, _code, error = create_reset_code(email)
+        self._send_json({'ok': ok, 'error': error})
 
     def _handle_auth_reset(self) -> None:
         try:

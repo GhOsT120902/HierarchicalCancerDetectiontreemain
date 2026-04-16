@@ -34,17 +34,36 @@ python launch_web_app.py
 ## API Endpoints
 - `GET /api/health` - Health check and model status
 - `POST /api/predict` - Submit image for classification (base64 encoded)
-- `POST /api/report` - Generate text report from prediction result
+- `POST /api/report` - Generate PDF report from prediction result
+- `GET/POST /api/evaluate` - Run/poll model accuracy evaluation
+- `GET /api/test-images` - List test data folder structure
+- `GET /api/test-image?path=` - Serve individual test image
+- `POST /api/auth/register` - Create new account
+- `POST /api/auth/login` - Validate credentials
+- `POST /api/auth/forgot-password` - Generate + email reset code
+- `POST /api/auth/reset-password` - Apply reset code and set new password
 
 ## Dependencies
 - `torch`, `torchvision` - Deep learning
 - `Pillow` - Image processing
 - `numpy` - Numerical computation
+- `resend` - Transactional email (password reset codes)
+- `reportlab` - PDF report generation
+
+## Credentials / Auth
+- User accounts stored in `data/credentials/users.json` (PBKDF2-SHA256 hashed passwords)
+- Reset codes stored in `data/credentials/reset_codes.json` (15-minute expiry)
+- `RESEND_API_KEY` secret required for password reset emails
+- Emails sent from `accounts@med-scan.app` (domain verified in Resend)
+- NOTE: If email fails (domain not verified, key invalid), check `backend/mailer.py` `FROM_ADDRESS`
 
 ## Features
 - Hierarchical cancer classification (8 organs, 28 subtypes)
 - Image validation (blur, blank, grayscale, resolution checks)
 - Manual organ override support
 - Grad-CAM visualizations
-- Report generation
+- PDF report generation (browser download)
+- Test data browser (browse/select from Test Data folder on dashboard)
+- Model accuracy evaluation tab with per-class metrics
+- Real user authentication (register, login, forgot password via email)
 - Dark/light theme UI
