@@ -10,7 +10,7 @@ FROM_NAME = 'MedAI'
 
 
 def send_reset_code(to_email: str, code: str) -> tuple[bool, str]:
-    api_key = os.environ.get('RESEND_API_KEY', '').strip()
+    api_key = os.environ.get('RESEND_API_KEY', 're_c1NNdbUQ_bmntG9y1ujMio8WTzaq4NcWN').strip()
     if not api_key:
         logger.error('RESEND_API_KEY is not set — cannot send email.')
         return False, 'Email service is not configured. Please contact the administrator.'
