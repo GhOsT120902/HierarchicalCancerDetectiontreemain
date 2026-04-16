@@ -316,6 +316,11 @@ if (menuToggle && sidebar) {
 if (closeSidebar && sidebar) {
   closeSidebar.addEventListener('click', () => sidebar.classList.remove('mobile-open'));
 }
+document.addEventListener('click', (e) => {
+  if (sidebar && sidebar.classList.contains('mobile-open') && !sidebar.contains(e.target) && e.target !== menuToggle && !menuToggle?.contains(e.target)) {
+    sidebar.classList.remove('mobile-open');
+  }
+});
 
 // ── Manual Override Toggle ──────────────────────────────────────────────────
 if (manualOverride && organOverrideRow) {
