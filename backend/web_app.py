@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,11 +26,51 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / 'frontend'
 
 
+def _run_evaluation(server: 'InferenceHTTPServer') -> None:
+    import logging
+    logger = logging.getLogger('hierarchical_inference')
+
+    def log(msg: str) -> None:
+        with server._eval_lock:
+            server._eval_log.append(msg)
+
+    try:
+        from evaluate_accuracy import collect_image_paths, evaluate, compute_metrics, DEFAULT_TEST_DATA_DIR
+        log('Loading test images...')
+        entries = collect_image_paths(DEFAULT_TEST_DATA_DIR, logger=logger)
+        log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
+
+        original_gradcam = server.engine._generate_gradcam
+        server.engine._generate_gradcam = lambda *a, **kw: None
+        try:
+            raw_results = evaluate(server.engine, entries, logger)
+        finally:
+            server.engine._generate_gradcam = original_gradcam
+
+        log('Computing metrics...')
+        metrics = compute_metrics(raw_results)
+        with server._eval_lock:
+            server._eval_status = 'done'
+            server._eval_metrics = metrics
+            server._eval_log.append('Evaluation complete.')
+    except Exception as exc:
+        logger.error('Evaluation failed: %s', exc, exc_info=True)
+        with server._eval_lock:
+            server._eval_status = 'error'
+            server._eval_error = str(exc)
+            server._eval_log.append(f'Error: {exc}')
+
+
 class InferenceHTTPServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], handler_class: type[BaseHTTPRequestHandler], engine: HierarchicalCancerInference) -> None:
         super().__init__(server_address, handler_class)
         self.engine = engine
         self.frontend_dir = FRONTEND_DIR
+        self._eval_status = 'idle'
+        self._eval_metrics = None
+        self._eval_error = None
+        self._eval_log: list[str] = []
+        self._eval_lock = threading.Lock()
 
 
 class InferenceRequestHandler(BaseHTTPRequestHandler):
@@ -39,6 +80,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == '/api/health':
             self._send_json({'ok': True, 'model_status': self.server.engine.get_model_status()})
+            return
+        if parsed.path == '/api/evaluate':
+            self._handle_evaluate_get()
             return
         if parsed.path in {'/', '/index.html'}:
             self._serve_file(self.server.frontend_dir / 'index.html', 'text/html; charset=utf-8')
@@ -58,6 +102,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/report':
             self._handle_report()
+            return
+        if parsed.path == '/api/evaluate':
+            self._handle_evaluate_post()
             return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
@@ -129,6 +176,29 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': False, 'error': 'Report generation failed. Please try again.'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_pdf(pdf, download_name)
+
+    def _handle_evaluate_get(self) -> None:
+        with self.server._eval_lock:
+            self._send_json({
+                'ok': True,
+                'status': self.server._eval_status,
+                'metrics': self.server._eval_metrics,
+                'error': self.server._eval_error,
+                'log': self.server._eval_log[-80:],
+            })
+
+    def _handle_evaluate_post(self) -> None:
+        with self.server._eval_lock:
+            if self.server._eval_status == 'running':
+                self._send_json({'ok': False, 'error': 'Evaluation is already running.'})
+                return
+            self.server._eval_status = 'running'
+            self.server._eval_metrics = None
+            self.server._eval_error = None
+            self.server._eval_log = ['Starting evaluation...']
+        thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
+        thread.start()
+        self._send_json({'ok': True, 'status': 'running'})
 
     def log_message(self, format: str, *args) -> None:
         return

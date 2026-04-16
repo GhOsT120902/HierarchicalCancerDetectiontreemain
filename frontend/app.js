@@ -654,6 +654,186 @@ if (reportButton) {
   });
 }
 
+// ── Nav Tab Switching ──────────────────────────────────────────────────────
+const navDashboard = document.getElementById('navDashboard');
+const navAccuracy = document.getElementById('navAccuracy');
+const dashboardContent = document.getElementById('dashboardContent');
+const accuracyPanel = document.getElementById('accuracyPanel');
+const mainHeading = document.querySelector('.header h1');
+
+function showTab(tab) {
+  const isDash = tab === 'dashboard';
+  if (dashboardContent) dashboardContent.style.display = isDash ? '' : 'none';
+  if (accuracyPanel) accuracyPanel.style.display = isDash ? 'none' : '';
+  if (navDashboard) navDashboard.classList.toggle('active', isDash);
+  if (navAccuracy) navAccuracy.classList.toggle('active', !isDash);
+  if (mainHeading) mainHeading.textContent = isDash ? 'Medical Scan Analysis' : 'Model Accuracy';
+  if (!isDash && sidebar) sidebar.classList.remove('mobile-open');
+}
+
+if (navDashboard) navDashboard.addEventListener('click', e => { e.preventDefault(); showTab('dashboard'); });
+if (navAccuracy) navAccuracy.addEventListener('click', e => { e.preventDefault(); showTab('accuracy'); });
+
+// ── Model Accuracy Evaluation ──────────────────────────────────────────────
+const runEvalBtn = document.getElementById('runEvalBtn');
+const evalStatusBadge = document.getElementById('evalStatusBadge');
+const evalProgressSection = document.getElementById('evalProgressSection');
+const evalLog = document.getElementById('evalLog');
+const evalResultsSection = document.getElementById('evalResultsSection');
+const evalMetricCards = document.getElementById('evalMetricCards');
+const evalPerClassSection = document.getElementById('evalPerClassSection');
+const evalErrorSection = document.getElementById('evalErrorSection');
+const evalErrorMsg = document.getElementById('evalErrorMsg');
+
+let evalPollTimer = null;
+
+function setEvalBadge(status) {
+  if (!evalStatusBadge) return;
+  const map = { idle: ['Idle', ''], running: ['Running', 'tone-blue'], done: ['Complete', 'tone-green'], error: ['Error', 'tone-red'] };
+  const [label, cls] = map[status] || ['Unknown', ''];
+  evalStatusBadge.textContent = label;
+  evalStatusBadge.className = `status-pill ${cls}`.trim();
+}
+
+function renderEvalPerClassTable(title, perClass) {
+  if (!perClass || !Object.keys(perClass).length) return '';
+  const rows = Object.entries(perClass).map(([label, v]) => `
+    <tr>
+      <td style="padding:6px 10px;">${escapeHtml(label)}</td>
+      <td style="padding:6px 10px; text-align:center;">${v.correct}/${v.total}</td>
+      <td style="padding:6px 10px; text-align:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="flex:1; height:8px; border-radius:4px; background:rgba(255,255,255,0.1); overflow:hidden;">
+            <div style="height:100%; width:${v.accuracy_pct}%; background:${v.accuracy_pct >= 90 ? 'var(--success)' : v.accuracy_pct >= 70 ? 'var(--warning)' : 'var(--danger)'}; border-radius:4px; transition:width 0.6s;"></div>
+          </div>
+          <span style="min-width:46px; font-size:0.85rem;">${v.accuracy_pct}%</span>
+        </div>
+      </td>
+    </tr>`).join('');
+  return `
+    <section class="glass-inner" style="padding:20px; margin-top:16px;">
+      <h3 style="margin-bottom:14px;">${escapeHtml(title)}</h3>
+      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead><tr style="color:var(--text-muted); font-size:0.8rem; text-transform:uppercase;">
+          <th style="padding:6px 10px; text-align:left;">Class</th>
+          <th style="padding:6px 10px; text-align:center;">Correct / Total</th>
+          <th style="padding:6px 10px; text-align:center;">Accuracy</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+}
+
+function renderEvalResults(metrics) {
+  if (!metrics || !evalMetricCards) return;
+
+  const levels = [
+    { key: 'organ', label: 'Level 1 — Organ', icon: 'fa-magnifying-glass', desc: 'Tissue / organ routing' },
+    { key: 'normality', label: 'Level 2 — Normality', icon: 'fa-circle-half-stroke', desc: 'Normal vs Abnormal' },
+    { key: 'subtype', label: 'Level 3 — Subtype', icon: 'fa-dna', desc: 'Cancer subtype (abnormal images only)' },
+  ];
+
+  evalMetricCards.innerHTML = levels.map(({ key, label, icon, desc }) => {
+    const m = metrics[key] || {};
+    const pct = m.accuracy_pct ?? 0;
+    const color = pct >= 90 ? 'var(--success)' : pct >= 70 ? 'var(--warning)' : 'var(--danger)';
+    return `
+      <div class="mini-card glass-inner" style="text-align:center; padding:24px;">
+        <div style="font-size:2rem; color:${color}; margin-bottom:8px;"><i class="fa-solid ${icon}"></i></div>
+        <h3 style="font-size:0.9rem; color:var(--text-muted); margin-bottom:4px;">${escapeHtml(label)}</h3>
+        <div style="font-size:2.4rem; font-weight:700; color:${color}; line-height:1;">${pct}%</div>
+        <p style="color:var(--text-muted); font-size:0.8rem; margin-top:6px;">${m.correct ?? '?'}/${m.evaluated ?? '?'} &bull; ${escapeHtml(desc)}</p>
+      </div>`;
+  }).join('');
+
+  if (evalPerClassSection) {
+    evalPerClassSection.innerHTML =
+      renderEvalPerClassTable('Organ / Tissue — Per Class', metrics.organ?.per_class) +
+      renderEvalPerClassTable('Normality — Per Class', metrics.normality?.per_class) +
+      renderEvalPerClassTable('Subtype — Per Class (Abnormal Images)', metrics.subtype?.per_class);
+  }
+
+  if (evalResultsSection) evalResultsSection.style.display = '';
+}
+
+function applyEvalState(data) {
+  const { status, metrics, error, log } = data;
+  setEvalBadge(status);
+
+  if (log && evalLog) evalLog.textContent = log.join('\n');
+
+  if (status === 'running') {
+    if (evalProgressSection) evalProgressSection.style.display = '';
+    if (evalResultsSection) evalResultsSection.style.display = 'none';
+    if (evalErrorSection) evalErrorSection.style.display = 'none';
+    if (runEvalBtn) { runEvalBtn.disabled = true; runEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...'; }
+    if (evalLog) evalLog.scrollTop = evalLog.scrollHeight;
+  } else if (status === 'done') {
+    if (evalProgressSection) evalProgressSection.style.display = 'none';
+    if (evalErrorSection) evalErrorSection.style.display = 'none';
+    if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Re-run Evaluation'; }
+    renderEvalResults(metrics);
+  } else if (status === 'error') {
+    if (evalProgressSection) evalProgressSection.style.display = 'none';
+    if (evalErrorSection) { evalErrorSection.style.display = ''; }
+    if (evalErrorMsg) evalErrorMsg.textContent = error || 'Unknown error.';
+    if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
+  } else {
+    if (evalProgressSection) evalProgressSection.style.display = 'none';
+    if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
+  }
+}
+
+async function pollEvalStatus() {
+  try {
+    const r = await fetch('/api/evaluate');
+    const data = await r.json();
+    applyEvalState(data);
+    if (data.status === 'running') {
+      evalPollTimer = setTimeout(pollEvalStatus, 2500);
+    } else {
+      evalPollTimer = null;
+    }
+  } catch (_) {
+    evalPollTimer = setTimeout(pollEvalStatus, 4000);
+  }
+}
+
+if (runEvalBtn) {
+  runEvalBtn.addEventListener('click', async () => {
+    if (evalPollTimer) clearTimeout(evalPollTimer);
+    runEvalBtn.disabled = true;
+    runEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Starting...';
+    if (evalResultsSection) evalResultsSection.style.display = 'none';
+    if (evalErrorSection) evalErrorSection.style.display = 'none';
+    try {
+      const r = await fetch('/api/evaluate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await r.json();
+      if (!data.ok) { showToast(data.error || 'Failed to start evaluation', 'error'); runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; return; }
+      if (evalProgressSection) evalProgressSection.style.display = '';
+      setEvalBadge('running');
+      showToast('Evaluation started — this may take a few minutes', 'success');
+      evalPollTimer = setTimeout(pollEvalStatus, 2500);
+    } catch (err) {
+      showToast('Could not reach server', 'error');
+      runEvalBtn.disabled = false;
+      runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation';
+    }
+  });
+}
+
+// On accuracy tab open, refresh status from server
+if (navAccuracy) {
+  navAccuracy.addEventListener('click', () => {
+    fetch('/api/evaluate').then(r => r.json()).then(data => {
+      applyEvalState(data);
+      if (data.status === 'running' && !evalPollTimer) {
+        evalPollTimer = setTimeout(pollEvalStatus, 2500);
+      }
+    }).catch(() => {});
+  });
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 if (form) {
   resetResults();

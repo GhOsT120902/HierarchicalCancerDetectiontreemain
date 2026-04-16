@@ -77,8 +77,8 @@
         <button class="close-sidebar" id="closeSidebar"><i class="fa-solid fa-times"></i></button>
       </div>
       <nav class="sidebar-nav">
-        <a href="#" class="nav-item active"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
-        <a href="#" class="nav-item"><i class="fa-solid fa-history"></i> History</a>
+        <a href="#" class="nav-item active" id="navDashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+        <a href="#" class="nav-item" id="navAccuracy"><i class="fa-solid fa-flask-vial"></i> Model Accuracy</a>
         <a href="#" class="nav-item"><i class="fa-solid fa-cog"></i> Settings</a>
         <a href="#" class="nav-item"><i class="fa-solid fa-question-circle"></i> Help</a>
       </nav>
@@ -104,7 +104,7 @@
       </header>
 
       <!-- Content Area -->
-      <div class="content">
+      <div class="content" id="dashboardContent">
         <!-- Model Status -->
         <section class="status-panel glass-inner" id="modelStatus">
           <h2><i class="fa-solid fa-server"></i> Platform Status</h2>
@@ -229,6 +229,38 @@
           </div>
         </section>
       </div>
+
+      <!-- Model Accuracy Panel -->
+      <div class="content" id="accuracyPanel" style="display:none;">
+        <section class="glass-inner" style="padding: 28px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+              <h2 style="margin:0;"><i class="fa-solid fa-flask-vial"></i> Model Accuracy Evaluation</h2>
+              <p style="color:var(--text-muted); margin-top:6px; font-size:0.9rem;">Runs all test images through the inference pipeline and computes accuracy at each stage. This may take a few minutes on CPU.</p>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center;">
+              <span id="evalStatusBadge" class="status-pill">Idle</span>
+              <button id="runEvalBtn" class="primary-btn"><i class="fa-solid fa-play"></i> Run Evaluation</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="evalProgressSection" class="glass-inner" style="display:none; padding:20px;">
+          <h3 style="margin-bottom:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Running inference...</h3>
+          <pre id="evalLog" style="font-size:0.82rem; color:var(--text-muted); white-space:pre-wrap; max-height:180px; overflow-y:auto; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px;"></pre>
+        </section>
+
+        <section id="evalResultsSection" style="display:none;">
+          <div class="cards-grid" id="evalMetricCards"></div>
+          <div id="evalPerClassSection"></div>
+        </section>
+
+        <section id="evalErrorSection" class="glass-inner" style="display:none; padding:20px; border:1px solid var(--danger);">
+          <h3 style="color:var(--danger);"><i class="fa-solid fa-circle-xmark"></i> Evaluation Failed</h3>
+          <p id="evalErrorMsg" style="margin-top:8px; color:var(--text-muted);"></p>
+        </section>
+      </div>
+
     </main>
   </div>
 
