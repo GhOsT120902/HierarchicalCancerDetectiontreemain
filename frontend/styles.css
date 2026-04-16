@@ -769,6 +769,24 @@ body.light-theme .input-field {
     opacity: 0.6; 
 }
 
+.pwd-eye-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px;
+    transition: var(--transition);
+}
+
+.pwd-eye-btn:hover {
+    color: var(--text-main);
+}
+
 .large-btn { 
     width: 100%; 
     padding: 14px 20px; 
