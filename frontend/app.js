@@ -451,12 +451,23 @@ function renderResult(result) {
   if (result.model_status) renderModelStatus({ model_status: result.model_status });
 
   const level1 = result.organ_prediction || result.level1;
-  const overrideNeeded = level1?.manual_override_required && !level1?.override_used;
+  const level1OverrideNeeded = !!(level1?.manual_override_required && !level1?.override_used);
+  const step0OverrideNeeded = !!(result.status === 'UNCERTAIN' && !result.override_used && !level1OverrideNeeded);
+  const overrideNeeded = level1OverrideNeeded || step0OverrideNeeded;
   if (overrideSection) {
     overrideSection.style.outline = overrideNeeded ? '2px solid var(--warning, #f59e0b)' : '';
     overrideSection.style.borderRadius = overrideNeeded ? '8px' : '';
   }
-  if (overrideHint) overrideHint.style.display = overrideNeeded ? 'block' : 'none';
+  if (overrideHint) {
+    if (overrideNeeded) {
+      overrideHint.innerHTML = step0OverrideNeeded
+        ? '<strong>Override needed:</strong> The modality check is uncertain. Tick the checkbox and re-run to proceed past this step.'
+        : '<strong>Override needed:</strong> The model is uncertain at Level 1. Select an organ above and re-run the pipeline.';
+      overrideHint.style.display = 'block';
+    } else {
+      overrideHint.style.display = 'none';
+    }
+  }
   if (overrideNeeded) {
     if (manualOverride) manualOverride.checked = true;
     if (organOverrideRow) organOverrideRow.style.display = 'block';

@@ -351,6 +351,11 @@ class HierarchicalCancerInference:
             return False, validation_payload, warnings, modality, image_tensor
 
         if not is_histopathology_specific_failure(validation_report.failure_code):
+            if manual_override and modality.get('status') == 'UNCERTAIN':
+                modality['override_used'] = True
+                modality['proceed'] = True
+                warnings.append('Manual override used to bypass uncertain modality validation.')
+                return True, validation_payload, warnings, modality, image_tensor
             return False, validation_payload, warnings, modality, image_tensor
 
         try:
@@ -404,6 +409,11 @@ class HierarchicalCancerInference:
                 return False, validation_payload, warnings, modality, image_tensor
             return True, validation_payload, warnings, modality, image_tensor
 
+        if manual_override and modality.get('status') == 'UNCERTAIN':
+            modality['override_used'] = True
+            modality['proceed'] = True
+            warnings.append('Manual override used to bypass uncertain modality validation.')
+            return True, validation_payload, warnings, modality, image_tensor
         return False, validation_payload, warnings, modality, image_tensor
 
     def _predict_from_tensor(
