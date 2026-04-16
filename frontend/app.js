@@ -729,6 +729,7 @@ if (form) {
       }
       renderResult(payload.result);
       saveHistoryEntry(payload.result, file.name, imageData);
+      autoReportPromise = autoGenerateReport(payload.result, file.name);
       setRequestState("Complete", "tone-green");
       showToast("Analysis complete!", "success");
     } catch (error) {
@@ -746,50 +747,91 @@ if (form) {
   });
 }
 
+// ── Report Blob Cache ──────────────────────────────────────────────────────
+const reportBlobCache = new Map(); // historyEntryId → { blob, dlName }
+let latestHistoryEntryId = null;
+let autoReportPromise = null;
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function autoGenerateReport(result, filename) {
+  const entryId = latestHistoryEntryId;
+  if (!entryId) return;
+  try {
+    const [file] = imageInput ? imageInput.files : [null];
+    const imageData = file ? await readFileAsDataUrl(file) : null;
+    const resp = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, result, image_data: imageData }),
+    });
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    const disposition = resp.headers.get('Content-Disposition') || '';
+    const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+    const dlName = nameMatch ? nameMatch[1] : `${(filename.replace(/\.[^.]+$/, '') || 'report')}_report.pdf`;
+    reportBlobCache.set(entryId, { blob, dlName });
+  } catch (_) {}
+}
+
 // ── Report Button ──────────────────────────────────────────────────────────
 if (reportButton) {
   reportButton.addEventListener("click", async () => {
     if (!latestResult) return;
+
+    // Fast path: blob already cached from auto-generation
+    if (latestHistoryEntryId && reportBlobCache.has(latestHistoryEntryId)) {
+      const { blob, dlName } = reportBlobCache.get(latestHistoryEntryId);
+      triggerDownload(blob, dlName);
+      if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-check" style="color:var(--success)"></i> Report downloaded successfully.';
+      showToast("Report downloaded!", "success");
+      return;
+    }
+
     reportButton.disabled = true;
-    reportButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+    reportButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing...';
     if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating report...';
+
     try {
+      // Wait for in-flight auto-generation if still running
+      if (autoReportPromise) {
+        await autoReportPromise;
+        if (latestHistoryEntryId && reportBlobCache.has(latestHistoryEntryId)) {
+          const { blob, dlName } = reportBlobCache.get(latestHistoryEntryId);
+          triggerDownload(blob, dlName);
+          if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-check" style="color:var(--success)"></i> Report downloaded successfully.';
+          showToast("Report downloaded!", "success");
+          return;
+        }
+      }
+
+      // Fallback: generate fresh
       const [file] = imageInput ? imageInput.files : [null];
       const imageData = file ? await readFileAsDataUrl(file) : null;
       const filename = latestFilename || latestResult.input?.source || "upload";
-
       const response = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename,
-          result: latestResult,
-          image_data: imageData,
-        }),
+        body: JSON.stringify({ filename, result: latestResult, image_data: imageData }),
       });
-
       if (!response.ok) {
         let errMsg = "Report generation failed.";
         try { const j = await response.json(); errMsg = j.error || errMsg; } catch (_) {}
         throw new Error(errMsg);
       }
-
       const blob = await response.blob();
       const disposition = response.headers.get("Content-Disposition") || "";
       const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
       const downloadFilename = nameMatch ? nameMatch[1] : `${(filename.replace(/\.[^.]+$/, "") || "report")}_report.pdf`;
-
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = downloadFilename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(url);
-
+      triggerDownload(blob, downloadFilename);
       if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-check" style="color:var(--success)"></i> Report downloaded successfully.';
-      markHistoryEntryReported(latestResult);
       showToast("Report downloaded!", "success");
     } catch (error) {
       if (reportStatus) reportStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color:var(--danger)"></i> ${error.message}`;
@@ -1144,9 +1186,10 @@ function compressThumbnail(dataUrl, maxW, maxH, cb) {
 
 function saveHistoryEntry(result, filename, imageDataUrl) {
   const id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  latestHistoryEntryId = id;
   const doSave = (thumb) => {
     const entries = loadHistoryEntries();
-    entries.unshift({ id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: false });
+    entries.unshift({ id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true });
     saveHistoryEntries(entries);
   };
   if (imageDataUrl) {
@@ -1206,8 +1249,8 @@ function renderHistoryPanel() {
           <div class="history-card-decision">${summary}</div>
         </div>
         <div class="history-card-actions">
-          <button class="history-card-btn primary hist-report-btn" data-id="${escapeHtml(entry.id)}" ${entry.hasReport ? '' : 'disabled'} title="${entry.hasReport ? 'Re-download report' : 'No report saved for this entry'}">
-            <i class="fa-solid fa-file-pdf"></i> ${entry.hasReport ? 'Report' : 'No Report'}
+          <button class="history-card-btn primary hist-report-btn" data-id="${escapeHtml(entry.id)}" title="Download PDF report">
+            <i class="fa-solid fa-file-pdf"></i> Report
           </button>
           <button class="history-card-btn hist-delete-btn" data-id="${escapeHtml(entry.id)}">
             <i class="fa-solid fa-trash"></i> Remove
@@ -1217,11 +1260,19 @@ function renderHistoryPanel() {
   }).join('');
 
   historyGrid.querySelectorAll('.hist-report-btn').forEach(btn => {
-    if (btn.disabled) return;
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       const entry = loadHistoryEntries().find(e => e.id === id);
       if (!entry || !entry.result) return;
+
+      // Fast path: blob already in memory cache
+      if (reportBlobCache.has(id)) {
+        const { blob, dlName } = reportBlobCache.get(id);
+        triggerDownload(blob, dlName);
+        showToast('Report downloaded!', 'success');
+        return;
+      }
+
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
       try {
@@ -1235,11 +1286,7 @@ function renderHistoryPanel() {
         const disposition = resp.headers.get('Content-Disposition') || '';
         const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
         const dlName = nameMatch ? nameMatch[1] : `${(entry.filename.replace(/\.[^.]+$/, '') || 'report')}_report.pdf`;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = dlName;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        triggerDownload(blob, dlName);
         showToast('Report downloaded!', 'success');
       } catch (e) {
         showToast('Report download failed', 'error');
