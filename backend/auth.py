@@ -108,6 +108,25 @@ def create_reset_code(email: str) -> tuple[bool, str, str]:
     return True, '', ''
 
 
+def change_password(email: str, current_password: str, new_password: str) -> tuple[bool, str]:
+    email = email.strip().lower()
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        return False, f'New password must be at least {MIN_PASSWORD_LENGTH} characters.'
+    with _lock:
+        users = _load_users()
+        record = users.get(email)
+        if not record:
+            return False, 'Account not found.'
+        expected_hash, _ = _hash_password(current_password, record['salt'])
+        if not hmac.compare_digest(expected_hash, record['password_hash']):
+            return False, 'Current password is incorrect.'
+        pw_hash, salt = _hash_password(new_password)
+        users[email]['password_hash'] = pw_hash
+        users[email]['salt'] = salt
+        _save_users(users)
+    return True, ''
+
+
 def reset_password(email: str, code: str, new_password: str) -> tuple[bool, str]:
     email = email.strip().lower()
     if len(new_password) < MIN_PASSWORD_LENGTH:

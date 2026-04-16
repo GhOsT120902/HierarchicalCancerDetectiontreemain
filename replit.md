@@ -42,6 +42,7 @@ python launch_web_app.py
 - `POST /api/auth/login` - Validate credentials
 - `POST /api/auth/forgot-password` - Generate + email reset code
 - `POST /api/auth/reset-password` - Apply reset code and set new password
+- `POST /api/auth/change-password` - Change password (requires current password)
 
 ## Dependencies
 - `torch`, `torchvision` - Deep learning
@@ -65,5 +66,8 @@ python launch_web_app.py
 - PDF report generation (browser download)
 - Test data browser (browse/select from Test Data folder on dashboard)
 - Model accuracy evaluation tab with per-class metrics
-- Real user authentication (register, login, forgot password via email)
+- Real user authentication (register, login, forgot password via email, change password)
+- Profile avatar (top-right header) with dropdown: shows user initials, links to History, Settings, and sign-out
+- History tab: past analyses stored in localStorage per user (up to 50 entries), image thumbnails, re-downloadable reports
+- Settings tab: change-password form with current/new/confirm fields + show/hide toggles
 - Dark/light theme UI

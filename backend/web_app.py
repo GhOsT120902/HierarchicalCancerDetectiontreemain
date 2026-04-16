@@ -10,7 +10,7 @@ from pathlib import Path
 import mimetypes
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .auth import create_reset_code, register_user, reset_password, verify_login
+from .auth import change_password, create_reset_code, register_user, reset_password, verify_login
 from .inference_engine import HierarchicalCancerInference
 from .report_generator import build_pdf_bytes
 from .utils import (
@@ -128,6 +128,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/auth/reset-password':
             self._handle_auth_reset()
             return
+        if parsed.path == '/api/auth/change-password':
+            self._handle_auth_change_password()
+            return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
     def _handle_predict(self) -> None:
@@ -229,6 +232,18 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         email = str(body.get('email', ''))
         ok, _code, error = create_reset_code(email)
+        self._send_json({'ok': ok, 'error': error})
+
+    def _handle_auth_change_password(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', ''))
+        current = str(body.get('current_password', ''))
+        new_pw = str(body.get('new_password', ''))
+        ok, error = change_password(email, current, new_pw)
         self._send_json({'ok': ok, 'error': error})
 
     def _handle_auth_reset(self) -> None:

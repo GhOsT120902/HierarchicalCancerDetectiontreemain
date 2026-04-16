@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedAI Dashboard - Medical Scan Analysis</title>
-  <link rel="stylesheet" href="/styles.css?v=5">
+  <link rel="stylesheet" href="/styles.css?v=6">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -160,7 +160,7 @@
       <nav class="sidebar-nav">
         <a href="#" class="nav-item active" id="navDashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
         <a href="#" class="nav-item" id="navAccuracy"><i class="fa-solid fa-flask-vial"></i> Model Accuracy</a>
-        <a href="#" class="nav-item"><i class="fa-solid fa-cog"></i> Settings</a>
+        <a href="#" class="nav-item" id="navSettings"><i class="fa-solid fa-cog"></i> Settings</a>
         <a href="#" class="nav-item" id="navHelp"><i class="fa-solid fa-question-circle"></i> Help</a>
       </nav>
       <div class="sidebar-footer">
@@ -181,6 +181,19 @@
         </div>
         <div class="header-right">
           <div class="request-state" id="requestState">Ready</div>
+          <div class="profile-wrap" id="profileWrap">
+            <button class="profile-btn" id="profileBtn" aria-label="User menu">
+              <span id="profileInitials">?</span>
+            </button>
+            <div class="profile-dropdown" id="profileDropdown" style="display:none;">
+              <div class="profile-dropdown-email" id="profileDropdownEmail"></div>
+              <hr class="profile-dropdown-divider">
+              <a href="#" class="profile-dropdown-item" id="ddHistory"><i class="fa-solid fa-clock-rotate-left"></i> My History</a>
+              <a href="#" class="profile-dropdown-item" id="ddSettings"><i class="fa-solid fa-cog"></i> Settings</a>
+              <hr class="profile-dropdown-divider">
+              <a href="#" class="profile-dropdown-item profile-dropdown-danger" id="ddLogout"><i class="fa-solid fa-sign-out-alt"></i> Sign Out</a>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -495,9 +508,67 @@
 
       </div><!-- /helpPanel -->
 
+      <!-- ── Settings Panel ── -->
+      <div class="content" id="settingsPanel" style="display:none;">
+
+        <section class="glass-inner" style="padding:28px; max-width:540px;">
+          <h2 style="margin:0 0 6px;"><i class="fa-solid fa-lock"></i> Change Password</h2>
+          <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:22px;">Update the password for your MedAI account.</p>
+          <form id="changePasswordForm" novalidate>
+            <div class="input-group">
+              <label for="cpCurrent">Current Password</label>
+              <div style="position:relative;">
+                <input type="password" id="cpCurrent" class="input-field" placeholder="••••••••" required autocomplete="current-password" style="padding-right:48px;">
+                <button type="button" class="pwd-eye-btn" data-input="cpCurrent" data-icon="cpCurrentEye"><i class="fa-solid fa-eye" id="cpCurrentEye"></i></button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="cpNew">New Password <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">(min. 6 characters)</span></label>
+              <div style="position:relative;">
+                <input type="password" id="cpNew" class="input-field" placeholder="••••••••" required autocomplete="new-password" style="padding-right:48px;">
+                <button type="button" class="pwd-eye-btn" data-input="cpNew" data-icon="cpNewEye"><i class="fa-solid fa-eye" id="cpNewEye"></i></button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="cpConfirm">Confirm New Password</label>
+              <input type="password" id="cpConfirm" class="input-field" placeholder="••••••••" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="primary-btn" id="cpSubmitBtn" style="margin-top:8px;">
+              <i class="fa-solid fa-key" id="cpBtnIcon"></i>
+              <span id="cpBtnLabel">Update Password</span>
+            </button>
+          </form>
+        </section>
+
+      </div><!-- /settingsPanel -->
+
+      <!-- ── History Panel ── -->
+      <div class="content" id="historyPanel" style="display:none;">
+
+        <section class="glass-inner" style="padding:24px 28px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="margin:0;"><i class="fa-solid fa-clock-rotate-left"></i> My History</h2>
+              <p style="color:var(--text-muted); font-size:0.88rem; margin-top:4px;">Your past analyses and exported reports are stored locally in this browser.</p>
+            </div>
+            <button id="clearHistoryBtn" style="padding:7px 16px; background:rgba(255,71,87,0.1); border:1px solid var(--danger); color:var(--danger); border-radius:var(--radius-md); cursor:pointer; font-size:0.85rem; transition:var(--transition);">
+              <i class="fa-solid fa-trash"></i> Clear All
+            </button>
+          </div>
+        </section>
+
+        <div id="historyEmpty" style="display:none; text-align:center; padding:60px 20px; color:var(--text-muted);">
+          <i class="fa-solid fa-box-open" style="font-size:3rem; margin-bottom:16px; display:block; opacity:0.4;"></i>
+          <p style="font-size:1rem;">No analyses yet. Run your first scan on the Dashboard.</p>
+        </div>
+
+        <div id="historyGrid" class="history-grid"></div>
+
+      </div><!-- /historyPanel -->
+
     </main>
   </div>
 
-  <script src="/app.js?v=5"></script>
+  <script src="/app.js?v=6"></script>
 </body>
 </html>

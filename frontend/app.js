@@ -728,6 +728,7 @@ if (form) {
         };
       }
       renderResult(payload.result);
+      saveHistoryEntry(payload.result, file.name, imageData);
       setRequestState("Complete", "tone-green");
       showToast("Analysis complete!", "success");
     } catch (error) {
@@ -788,6 +789,7 @@ if (reportButton) {
       URL.revokeObjectURL(url);
 
       if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-check" style="color:var(--success)"></i> Report downloaded successfully.';
+      markHistoryEntryReported(latestResult);
       showToast("Report downloaded!", "success");
     } catch (error) {
       if (reportStatus) reportStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color:var(--danger)"></i> ${error.message}`;
@@ -924,32 +926,30 @@ if (reportButton) {
 const navDashboard = document.getElementById('navDashboard');
 const navAccuracy = document.getElementById('navAccuracy');
 const navHelp = document.getElementById('navHelp');
+const navSettings = document.getElementById('navSettings');
 const dashboardContent = document.getElementById('dashboardContent');
 const accuracyPanel = document.getElementById('accuracyPanel');
 const helpPanel = document.getElementById('helpPanel');
+const settingsPanel = document.getElementById('settingsPanel');
+const historyPanel = document.getElementById('historyPanel');
 const mainHeading = document.querySelector('.header h1');
 
+const TAB_TITLES = { dashboard: 'Medical Scan Analysis', accuracy: 'Model Accuracy', help: 'Help', settings: 'Settings', history: 'My History' };
+
 function showTab(tab) {
-  const isDash = tab === 'dashboard';
-  const isAccuracy = tab === 'accuracy';
-  const isHelp = tab === 'help';
-  if (dashboardContent) dashboardContent.style.display = isDash ? '' : 'none';
-  if (accuracyPanel) accuracyPanel.style.display = isAccuracy ? '' : 'none';
-  if (helpPanel) helpPanel.style.display = isHelp ? '' : 'none';
-  if (navDashboard) navDashboard.classList.toggle('active', isDash);
-  if (navAccuracy) navAccuracy.classList.toggle('active', isAccuracy);
-  if (navHelp) navHelp.classList.toggle('active', isHelp);
-  if (mainHeading) {
-    if (isDash) mainHeading.textContent = 'Medical Scan Analysis';
-    else if (isAccuracy) mainHeading.textContent = 'Model Accuracy';
-    else mainHeading.textContent = 'Help';
-  }
-  if (!isDash && sidebar) sidebar.classList.remove('mobile-open');
+  const panels = { dashboard: dashboardContent, accuracy: accuracyPanel, help: helpPanel, settings: settingsPanel, history: historyPanel };
+  const navs = { dashboard: navDashboard, accuracy: navAccuracy, help: navHelp, settings: navSettings };
+  Object.entries(panels).forEach(([key, el]) => { if (el) el.style.display = key === tab ? '' : 'none'; });
+  Object.entries(navs).forEach(([key, el]) => { if (el) el.classList.toggle('active', key === tab); });
+  if (mainHeading) mainHeading.textContent = TAB_TITLES[tab] || 'Medical Scan Analysis';
+  if (tab !== 'dashboard' && sidebar) sidebar.classList.remove('mobile-open');
+  if (tab === 'history') renderHistoryPanel();
 }
 
 if (navDashboard) navDashboard.addEventListener('click', e => { e.preventDefault(); showTab('dashboard'); });
 if (navAccuracy) navAccuracy.addEventListener('click', e => { e.preventDefault(); showTab('accuracy'); });
 if (navHelp) navHelp.addEventListener('click', e => { e.preventDefault(); showTab('help'); });
+if (navSettings) navSettings.addEventListener('click', e => { e.preventDefault(); showTab('settings'); });
 
 // ── Model Accuracy Evaluation ──────────────────────────────────────────────
 const runEvalBtn = document.getElementById('runEvalBtn');
@@ -1111,8 +1111,288 @@ if (navAccuracy) {
   });
 }
 
+// ── History Storage ────────────────────────────────────────────────────────
+const HISTORY_MAX = 50;
+
+function historyKey() {
+  const email = localStorage.getItem('medai_user_email') || 'guest';
+  return `medai_history_${email}`;
+}
+
+function loadHistoryEntries() {
+  try { return JSON.parse(localStorage.getItem(historyKey()) || '[]'); } catch (_) { return []; }
+}
+
+function saveHistoryEntries(entries) {
+  try { localStorage.setItem(historyKey(), JSON.stringify(entries.slice(0, HISTORY_MAX))); } catch (_) {}
+}
+
+function compressThumbnail(dataUrl, maxW, maxH, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.onerror = () => cb(null);
+  img.src = dataUrl;
+}
+
+function saveHistoryEntry(result, filename, imageDataUrl) {
+  const id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const doSave = (thumb) => {
+    const entries = loadHistoryEntries();
+    entries.unshift({ id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: false });
+    saveHistoryEntries(entries);
+  };
+  if (imageDataUrl) {
+    compressThumbnail(imageDataUrl, 400, 280, thumb => doSave(thumb));
+  } else {
+    doSave(null);
+  }
+}
+
+function markHistoryEntryReported(result) {
+  const entries = loadHistoryEntries();
+  const decision = result && result.final_decision;
+  const idx = entries.findIndex(e => e.result && e.result.final_decision === decision && !e.hasReport);
+  if (idx !== -1) {
+    entries[idx].hasReport = true;
+    entries[idx].reportResult = result;
+    saveHistoryEntries(entries);
+  }
+}
+
+// ── History Panel Rendering ────────────────────────────────────────────────
+const historyGrid = document.getElementById('historyGrid');
+const historyEmpty = document.getElementById('historyEmpty');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+function formatRelativeDate(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderHistoryPanel() {
+  if (!historyGrid) return;
+  const entries = loadHistoryEntries();
+  if (entries.length === 0) {
+    if (historyEmpty) historyEmpty.style.display = '';
+    historyGrid.innerHTML = '';
+    return;
+  }
+  if (historyEmpty) historyEmpty.style.display = 'none';
+  historyGrid.innerHTML = entries.map(entry => {
+    const decision = escapeHtml(entry.result?.final_decision || 'Unknown result');
+    const organ = escapeHtml(entry.result?.organ_prediction?.selected_label || entry.result?.organ_prediction?.label || '');
+    const subtype = escapeHtml(entry.result?.subtype_prediction?.interpreted_label || entry.result?.subtype_prediction?.label || '');
+    const summary = [organ, subtype].filter(Boolean).join(' › ') || decision;
+    const thumb = entry.thumbnailDataUrl
+      ? `<img class="history-card-thumb" src="${entry.thumbnailDataUrl}" alt="Scan thumbnail">`
+      : `<div class="history-card-thumb-placeholder"><i class="fa-solid fa-image"></i></div>`;
+    return `
+      <div class="history-card" data-id="${escapeHtml(entry.id)}">
+        ${thumb}
+        <div class="history-card-body">
+          <div class="history-card-filename" title="${escapeHtml(entry.filename)}">${escapeHtml(entry.filename)}</div>
+          <div class="history-card-date"><i class="fa-regular fa-clock"></i> ${formatRelativeDate(entry.timestamp)}</div>
+          <div class="history-card-decision">${summary}</div>
+        </div>
+        <div class="history-card-actions">
+          <button class="history-card-btn primary hist-report-btn" data-id="${escapeHtml(entry.id)}" ${entry.hasReport ? '' : 'disabled'} title="${entry.hasReport ? 'Re-download report' : 'No report saved for this entry'}">
+            <i class="fa-solid fa-file-pdf"></i> ${entry.hasReport ? 'Report' : 'No Report'}
+          </button>
+          <button class="history-card-btn hist-delete-btn" data-id="${escapeHtml(entry.id)}">
+            <i class="fa-solid fa-trash"></i> Remove
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  historyGrid.querySelectorAll('.hist-report-btn').forEach(btn => {
+    if (btn.disabled) return;
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const entry = loadHistoryEntries().find(e => e.id === id);
+      if (!entry || !entry.result) return;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const resp = await fetch('/api/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: entry.filename, result: entry.result, image_data: entry.thumbnailDataUrl || null }),
+        });
+        if (!resp.ok) throw new Error('Report generation failed.');
+        const blob = await resp.blob();
+        const disposition = resp.headers.get('Content-Disposition') || '';
+        const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+        const dlName = nameMatch ? nameMatch[1] : `${(entry.filename.replace(/\.[^.]+$/, '') || 'report')}_report.pdf`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = dlName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Report downloaded!', 'success');
+      } catch (e) {
+        showToast('Report download failed', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Report';
+      }
+    });
+  });
+
+  historyGrid.querySelectorAll('.hist-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      const entries = loadHistoryEntries().filter(e => e.id !== id);
+      saveHistoryEntries(entries);
+      renderHistoryPanel();
+    });
+  });
+}
+
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener('click', () => {
+    if (!confirm('Clear all history? This cannot be undone.')) return;
+    localStorage.removeItem(historyKey());
+    renderHistoryPanel();
+    showToast('History cleared', 'success');
+  });
+}
+
+// ── Profile Avatar & Dropdown ─────────────────────────────────────────────
+const profileBtn = document.getElementById('profileBtn');
+const profileDropdown = document.getElementById('profileDropdown');
+const profileInitials = document.getElementById('profileInitials');
+const profileDropdownEmail = document.getElementById('profileDropdownEmail');
+const ddHistory = document.getElementById('ddHistory');
+const ddSettings = document.getElementById('ddSettings');
+const ddLogout = document.getElementById('ddLogout');
+
+function initProfileAvatar() {
+  const email = localStorage.getItem('medai_user_email') || '';
+  if (profileDropdownEmail) profileDropdownEmail.textContent = email || 'Not signed in';
+  if (profileInitials) {
+    if (email) {
+      const parts = email.split('@')[0].split(/[._\-]/).filter(Boolean);
+      const initials = parts.length >= 2
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : email.slice(0, 2).toUpperCase();
+      profileInitials.textContent = initials;
+    } else {
+      profileInitials.textContent = '?';
+    }
+  }
+}
+
+function closeProfileDropdown() {
+  if (profileDropdown) profileDropdown.style.display = 'none';
+}
+
+if (profileBtn) {
+  profileBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = profileDropdown && profileDropdown.style.display !== 'none';
+    closeProfileDropdown();
+    if (!isOpen && profileDropdown) profileDropdown.style.display = '';
+  });
+}
+
+document.addEventListener('click', e => {
+  if (profileDropdown && profileDropdown.style.display !== 'none') {
+    if (!profileDropdown.contains(e.target) && e.target !== profileBtn) closeProfileDropdown();
+  }
+});
+
+if (ddHistory) {
+  ddHistory.addEventListener('click', e => {
+    e.preventDefault();
+    closeProfileDropdown();
+    showTab('history');
+  });
+}
+if (ddSettings) {
+  ddSettings.addEventListener('click', e => {
+    e.preventDefault();
+    closeProfileDropdown();
+    showTab('settings');
+  });
+}
+if (ddLogout) {
+  ddLogout.addEventListener('click', e => {
+    e.preventDefault();
+    closeProfileDropdown();
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.click();
+  });
+}
+
+// ── Change Password Form ───────────────────────────────────────────────────
+const changePasswordForm = document.getElementById('changePasswordForm');
+const cpCurrent = document.getElementById('cpCurrent');
+const cpNew = document.getElementById('cpNew');
+const cpConfirm = document.getElementById('cpConfirm');
+const cpSubmitBtn = document.getElementById('cpSubmitBtn');
+const cpBtnIcon = document.getElementById('cpBtnIcon');
+const cpBtnLabel = document.getElementById('cpBtnLabel');
+
+document.querySelectorAll('.pwd-eye-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const inp = document.getElementById(btn.dataset.input);
+    const icon = document.getElementById(btn.dataset.icon);
+    if (!inp) return;
+    const isPass = inp.type === 'password';
+    inp.type = isPass ? 'text' : 'password';
+    if (icon) { icon.className = isPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'; }
+  });
+});
+
+if (changePasswordForm) {
+  changePasswordForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = localStorage.getItem('medai_user_email') || '';
+    if (!email) { showToast('Not signed in', 'error'); return; }
+    const current = cpCurrent ? cpCurrent.value : '';
+    const newPw = cpNew ? cpNew.value : '';
+    const confirm = cpConfirm ? cpConfirm.value : '';
+    if (!current || !newPw || !confirm) { showToast('Please fill in all fields', 'error'); return; }
+    if (newPw !== confirm) { showToast('New passwords do not match', 'error'); return; }
+    if (newPw.length < 6) { showToast('New password must be at least 6 characters', 'error'); return; }
+    if (cpSubmitBtn) cpSubmitBtn.disabled = true;
+    if (cpBtnIcon) cpBtnIcon.className = 'fa-solid fa-spinner fa-spin';
+    if (cpBtnLabel) cpBtnLabel.textContent = 'Updating...';
+    try {
+      const resp = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, current_password: current, new_password: newPw }),
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Password change failed');
+      showToast('Password updated successfully!', 'success');
+      changePasswordForm.reset();
+    } catch (err) {
+      showToast(err.message || 'Failed to update password', 'error');
+    } finally {
+      if (cpSubmitBtn) cpSubmitBtn.disabled = false;
+      if (cpBtnIcon) cpBtnIcon.className = 'fa-solid fa-key';
+      if (cpBtnLabel) cpBtnLabel.textContent = 'Update Password';
+    }
+  });
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 if (form) {
   resetResults();
   fetchHealth();
 }
+initProfileAvatar();
