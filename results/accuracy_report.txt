@@ -1,0 +1,138 @@
+========================================================================
+HIERARCHICAL CANCER INFERENCE — ACCURACY REPORT
+========================================================================
+Total images evaluated : 420
+
+Pipeline status breakdown:
+  HIGH_CONFIDENCE          159
+  LOW_CONFIDENCE             1
+  MEDIUM_CONFIDENCE        178
+  NORMAL                    41
+  UNCERTAIN                 41
+
+========================================================================
+LEVEL 1 — ORGAN / TISSUE CLASSIFICATION
+========================================================================
+  Evaluated: 420   Correct: 420   Accuracy: 100.00%
+
+  Class                               Correct  Total   Acc %
+  ------------------------------------------------------------
+  ALL                                      60     60  100.00%
+  Brain Cancer                             75     75  100.00%
+  Breast Cancer                            30     30  100.00%
+  Cervical Cancer                          75     75  100.00%
+  Kidney Cancer                            30     30  100.00%
+  Lung and Colon Cancer                    75     75  100.00%
+  Lymphoma                                 45     45  100.00%
+  Oral Cancer                              30     30  100.00%
+
+========================================================================
+LEVEL 2 — NORMAL / ABNORMAL ASSESSMENT
+========================================================================
+  Evaluated: 379   Correct: 377   Accuracy: 99.47%
+
+  Class                               Correct  Total   Acc %
+  ------------------------------------------------------------
+  ABNORMAL                                336    336  100.00%
+  NORMAL                                   41     43   95.35%
+
+========================================================================
+LEVEL 3 — CANCER SUBTYPE CLASSIFICATION
+  (Applies only to images routed through the ABNORMAL path at Level 2.
+   Images correctly identified as NORMAL are assessed at Level 2 only.)
+========================================================================
+  Evaluated: 336   Correct: 336   Accuracy: 100.00%
+
+  Subtype (true)            Correct  Total   Acc %
+  -------------------------------------------------------
+  all_benign                     15     15  100.00%
+  all_early                      15     15  100.00%
+  all_pre                        15     15  100.00%
+  all_pro                        15     15  100.00%
+  brain_glioma                   15     15  100.00%
+  brain_menin                    15     15  100.00%
+  brain_pituitary                14     15   93.33%
+  brain_tumor                    12     15   80.00%
+  breast_benign                  14     15   93.33%
+  breast_malignant               14     15   93.33%
+  cervix_dyk                     15     15  100.00%
+  cervix_koc                     15     15  100.00%
+  cervix_mep                     15     15  100.00%
+  cervix_pab                     15     15  100.00%
+  cervix_sfi                     15     15  100.00%
+  colon_aca                       6     15   40.00%
+  colon_bnt                       4     15   26.67%
+  kidney_tumor                   13     15   86.67%
+  lung_aca                        9     15   60.00%
+  lung_bnt                       15     15  100.00%
+  lung_scc                       11     15   73.33%
+  lymph_cll                      15     15  100.00%
+  lymph_fl                       15     15  100.00%
+  lymph_mcl                      15     15  100.00%
+  oral_scc                       14     15   93.33%
+
+------------------------------------------------------------------------
+SUBTYPE CONFUSION SUMMARY (true → predicted counts)
+------------------------------------------------------------------------
+  all_benign:
+    ✓ all_benign                       15
+  all_early:
+    ✓ all_early                        15
+  all_pre:
+    ✓ all_pre                          15
+  all_pro:
+    ✓ all_pro                          15
+  brain_glioma:
+    ✓ brain_glioma                     15
+  brain_menin:
+    ✓ brain_menin                      15
+  brain_pituitary:
+    ✓ brain_pituitary                  14
+      (pipeline_stopped_early)          1
+  brain_tumor:
+    ✓ brain_tumor                      12
+      (pipeline_stopped_early)          3
+  breast_benign:
+    ✓ breast_benign                    14
+      (pipeline_stopped_early)          1
+  breast_malignant:
+    ✓ breast_malignant                 14
+      (pipeline_stopped_early)          1
+  cervix_dyk:
+    ✓ cervix_dyk                       15
+  cervix_koc:
+    ✓ cervix_koc                       15
+  cervix_mep:
+    ✓ cervix_mep                       15
+  cervix_pab:
+    ✓ cervix_pab                       15
+  cervix_sfi:
+    ✓ cervix_sfi                       15
+  colon_aca:
+      (pipeline_stopped_early)          9
+    ✓ colon_aca                         6
+  colon_bnt:
+      (pipeline_stopped_early)         11
+    ✓ colon_bnt                         4
+  kidney_tumor:
+    ✓ kidney_tumor                     13
+      (pipeline_stopped_early)          2
+  lung_aca:
+    ✓ lung_aca                          9
+      (pipeline_stopped_early)          6
+  lung_bnt:
+    ✓ lung_bnt                         15
+  lung_scc:
+    ✓ lung_scc                         11
+      (pipeline_stopped_early)          4
+  lymph_cll:
+    ✓ lymph_cll                        15
+  lymph_fl:
+    ✓ lymph_fl                         15
+  lymph_mcl:
+    ✓ lymph_mcl                        15
+  oral_scc:
+    ✓ oral_scc                         14
+      (pipeline_stopped_early)          1
+
+========================================================================
