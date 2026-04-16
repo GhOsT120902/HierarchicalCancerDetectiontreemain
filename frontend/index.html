@@ -135,14 +135,20 @@
               </button>
             </div>
 
-            <div class="form-row">
-              <label style="display: flex; align-items: center; gap: 10px;">
+            <div class="form-row" id="overrideSection">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                 <input type="checkbox" id="manualOverride">
-                <span>Manual Override</span>
+                <span>Allow override when model is uncertain</span>
               </label>
-              <select id="organOverride" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border-glass);">
-                <option>No override</option>
-              </select>
+              <div id="organOverrideRow" style="display:none; margin-top: 8px;">
+                <label for="organOverride" style="font-size: 0.85rem; color: var(--text-muted); display:block; margin-bottom:4px;">Select organ/tissue to force:</label>
+                <select id="organOverride" style="width:100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-glass); background: var(--bg-card); color: var(--text-primary);">
+                  <option value="">Use model prediction</option>
+                </select>
+              </div>
+              <p id="overrideHint" style="display:none; margin-top: 8px; font-size: 0.82rem; color: var(--warning, #f59e0b); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--warning, #f59e0b);">
+                <strong>Override needed:</strong> The model is uncertain at Level 1. Select an organ above and re-run the pipeline.
+              </p>
             </div>
 
             <div id="uploadProgressWrapper" style="display: none; margin-top: 15px;">

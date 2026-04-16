@@ -95,6 +95,9 @@ const imagePreview = document.getElementById("imagePreview");
 const previewPlaceholder = document.getElementById("previewPlaceholder");
 const manualOverride = document.getElementById("manualOverride");
 const organOverride = document.getElementById("organOverride");
+const organOverrideRow = document.getElementById("organOverrideRow");
+const overrideHint = document.getElementById("overrideHint");
+const overrideSection = document.getElementById("overrideSection");
 const submitButton = document.getElementById("submitButton");
 const reportButton = document.getElementById("reportButton");
 const reportStatus = document.getElementById("reportStatus");
@@ -169,6 +172,17 @@ if (closeSidebar && sidebar) {
   closeSidebar.addEventListener('click', () => sidebar.classList.remove('mobile-open'));
 }
 
+// ── Manual Override Toggle ──────────────────────────────────────────────────
+if (manualOverride && organOverrideRow) {
+  manualOverride.addEventListener('change', () => {
+    const checked = manualOverride.checked;
+    organOverrideRow.style.display = checked ? 'block' : 'none';
+    if (!checked && organOverride) organOverride.value = '';
+    if (overrideHint) overrideHint.style.display = 'none';
+    if (overrideSection) overrideSection.style.borderColor = '';
+  });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function setRequestState(label, className = "") {
   if (!requestState) return;
@@ -220,6 +234,8 @@ function resetResults() {
   renderGradcam(null);
   renderChart(organChart, null, "Organ Probability Graph");
   renderChart(subtypeChart, null, "Subtype Probability Graph");
+  if (overrideHint) overrideHint.style.display = 'none';
+  if (overrideSection) overrideSection.style.outline = '';
 }
 
 function renderWarnings(warnings) {
@@ -433,6 +449,19 @@ function renderResult(result) {
   renderChart(subtypeChart, result.charts?.subtype, "Subtype Probability Graph");
 
   if (result.model_status) renderModelStatus({ model_status: result.model_status });
+
+  const level1 = result.organ_prediction || result.level1;
+  const overrideNeeded = level1?.manual_override_required && !level1?.override_used;
+  if (overrideSection) {
+    overrideSection.style.outline = overrideNeeded ? '2px solid var(--warning, #f59e0b)' : '';
+    overrideSection.style.borderRadius = overrideNeeded ? '8px' : '';
+  }
+  if (overrideHint) overrideHint.style.display = overrideNeeded ? 'block' : 'none';
+  if (overrideNeeded) {
+    if (manualOverride) manualOverride.checked = true;
+    if (organOverrideRow) organOverrideRow.style.display = 'block';
+    if (overrideSection) overrideSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 // ── Drag & Drop ────────────────────────────────────────────────────────────
