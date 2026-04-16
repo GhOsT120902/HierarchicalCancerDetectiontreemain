@@ -923,22 +923,33 @@ if (reportButton) {
 // ── Nav Tab Switching ──────────────────────────────────────────────────────
 const navDashboard = document.getElementById('navDashboard');
 const navAccuracy = document.getElementById('navAccuracy');
+const navHelp = document.getElementById('navHelp');
 const dashboardContent = document.getElementById('dashboardContent');
 const accuracyPanel = document.getElementById('accuracyPanel');
+const helpPanel = document.getElementById('helpPanel');
 const mainHeading = document.querySelector('.header h1');
 
 function showTab(tab) {
   const isDash = tab === 'dashboard';
+  const isAccuracy = tab === 'accuracy';
+  const isHelp = tab === 'help';
   if (dashboardContent) dashboardContent.style.display = isDash ? '' : 'none';
-  if (accuracyPanel) accuracyPanel.style.display = isDash ? 'none' : '';
+  if (accuracyPanel) accuracyPanel.style.display = isAccuracy ? '' : 'none';
+  if (helpPanel) helpPanel.style.display = isHelp ? '' : 'none';
   if (navDashboard) navDashboard.classList.toggle('active', isDash);
-  if (navAccuracy) navAccuracy.classList.toggle('active', !isDash);
-  if (mainHeading) mainHeading.textContent = isDash ? 'Medical Scan Analysis' : 'Model Accuracy';
+  if (navAccuracy) navAccuracy.classList.toggle('active', isAccuracy);
+  if (navHelp) navHelp.classList.toggle('active', isHelp);
+  if (mainHeading) {
+    if (isDash) mainHeading.textContent = 'Medical Scan Analysis';
+    else if (isAccuracy) mainHeading.textContent = 'Model Accuracy';
+    else mainHeading.textContent = 'Help';
+  }
   if (!isDash && sidebar) sidebar.classList.remove('mobile-open');
 }
 
 if (navDashboard) navDashboard.addEventListener('click', e => { e.preventDefault(); showTab('dashboard'); });
 if (navAccuracy) navAccuracy.addEventListener('click', e => { e.preventDefault(); showTab('accuracy'); });
+if (navHelp) navHelp.addEventListener('click', e => { e.preventDefault(); showTab('help'); });
 
 // ── Model Accuracy Evaluation ──────────────────────────────────────────────
 const runEvalBtn = document.getElementById('runEvalBtn');

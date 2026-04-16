@@ -161,7 +161,7 @@
         <a href="#" class="nav-item active" id="navDashboard"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
         <a href="#" class="nav-item" id="navAccuracy"><i class="fa-solid fa-flask-vial"></i> Model Accuracy</a>
         <a href="#" class="nav-item"><i class="fa-solid fa-cog"></i> Settings</a>
-        <a href="#" class="nav-item"><i class="fa-solid fa-question-circle"></i> Help</a>
+        <a href="#" class="nav-item" id="navHelp"><i class="fa-solid fa-question-circle"></i> Help</a>
       </nav>
       <div class="sidebar-footer">
         <button class="theme-toggle" id="themeToggle"><i class="fa-solid fa-sun"></i> <span id="themeToggleText">Light Mode</span></button>
@@ -353,6 +353,147 @@
           <p id="evalErrorMsg" style="margin-top:8px; color:var(--text-muted);"></p>
         </section>
       </div>
+
+      <!-- Help Panel -->
+      <div class="content" id="helpPanel" style="display:none;">
+
+        <!-- Getting Started -->
+        <section class="glass-inner" style="padding:28px; margin-bottom:0;">
+          <h2 style="margin:0 0 6px;"><i class="fa-solid fa-rocket"></i> Getting Started</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">MedAI Dashboard runs medical scan images through a multi-stage AI pipeline and produces a structured clinical decision with visual explanations. Here is the typical workflow:</p>
+          <ol style="color:var(--text-muted); font-size:0.9rem; line-height:1.9; padding-left:1.2rem; margin:0;">
+            <li>Log in and land on the <strong style="color:var(--text);">Dashboard</strong> tab.</li>
+            <li>Upload a scan image via drag-and-drop or the file picker.</li>
+            <li>Optionally enable the <strong style="color:var(--text);">Manual Organ Override</strong> to force a specific organ context.</li>
+            <li>Click <strong style="color:var(--text);">Run Intelligent Pipeline</strong> and wait for the pipeline to finish.</li>
+            <li>Review the four stage cards, the Grad-CAM heatmap, and the Final Decision banner.</li>
+            <li>Export a PDF report if needed.</li>
+          </ol>
+        </section>
+
+        <div class="cards-grid" style="margin-top:24px;">
+
+          <!-- Uploading a Scan -->
+          <section class="glass-inner" style="padding:24px;">
+            <h3 style="margin:0 0 10px;"><i class="fa-solid fa-upload"></i> Uploading a Scan</h3>
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+              Drag an image file onto the upload zone or click <em>Select Image</em> to open a file picker. A thumbnail preview appears immediately. Supported formats are <strong style="color:var(--text);">JPEG, PNG, BMP, and TIFF</strong>. The file is sent to the backend only when you click <em>Run Intelligent Pipeline</em> — nothing is stored permanently.
+            </p>
+          </section>
+
+          <!-- Manual Organ Override -->
+          <section class="glass-inner" style="padding:24px;">
+            <h3 style="margin:0 0 10px;"><i class="fa-solid fa-user-pen"></i> Manual Organ Override</h3>
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+              Toggle <em>Manual Organ Override</em> to bypass the AI's automatic organ selection and choose a specific organ from the dropdown. Use this when you already know the scan's anatomical context and want Level 2 / Level 3 analysis to be constrained accordingly. The Final Decision banner will note when an override was applied.
+            </p>
+          </section>
+
+          <!-- Export PDF Report -->
+          <section class="glass-inner" style="padding:24px;">
+            <h3 style="margin:0 0 10px;"><i class="fa-solid fa-file-pdf"></i> Exporting a PDF Report</h3>
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+              After a successful analysis the <strong style="color:var(--text);">Export Report</strong> button becomes active. Clicking it sends the current result to the backend, which assembles a structured PDF and saves it to your server's <em>Documents</em> folder. A confirmation message appears once the file is ready.
+            </p>
+          </section>
+
+          <!-- Model Accuracy Tab -->
+          <section class="glass-inner" style="padding:24px;">
+            <h3 style="margin:0 0 10px;"><i class="fa-solid fa-flask-vial"></i> Model Accuracy Tab</h3>
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+              The <strong style="color:var(--text);">Model Accuracy</strong> tab runs every test image in the backend's test set through the full inference pipeline and computes per-stage accuracy metrics. Click <em>Run Evaluation</em> to start — the process can take several minutes on CPU. Results show accuracy cards and per-class breakdowns for each stage.
+            </p>
+          </section>
+
+        </div>
+
+        <!-- Pipeline Stages -->
+        <section class="glass-inner" style="padding:28px; margin-top:24px;">
+          <h2 style="margin:0 0 16px;"><i class="fa-solid fa-diagram-project"></i> Pipeline Stages</h2>
+          <div style="display:grid; gap:16px;">
+
+            <div style="display:flex; gap:16px; align-items:flex-start;">
+              <div style="min-width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; color:#fff; flex-shrink:0;">0</div>
+              <div>
+                <strong style="font-size:0.95rem;">Step 0 — Modality Validation</strong>
+                <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:4px 0 0;">The first gate checks whether the uploaded image is a valid medical organ scan. If the image is a photograph, screenshot, or otherwise not an organ scan, the pipeline stops here and returns a <em>Rejected Input</em> decision. Only images that pass this check proceed to Level 1.</p>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:16px; align-items:flex-start;">
+              <div style="min-width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; color:#fff; flex-shrink:0;">1</div>
+              <div>
+                <strong style="font-size:0.95rem;">Level 1 — Tissue / Organ Routing</strong>
+                <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:4px 0 0;">The organ classification model identifies which organ or tissue type appears in the scan (e.g. lung, brain, kidney). The top prediction, along with a probability bar chart, is shown in the <em>Level 1: Tissue</em> card. A manual override replaces this prediction for all downstream stages.</p>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:16px; align-items:flex-start;">
+              <div style="min-width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; color:#fff; flex-shrink:0;">2</div>
+              <div>
+                <strong style="font-size:0.95rem;">Level 2 — Normality Assessment</strong>
+                <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:4px 0 0;">Given the identified organ, a normality model decides whether the tissue appears <em>Normal</em> or <em>Abnormal</em>. The confidence score and colour-coded status (green = Normal, red = Abnormal) are displayed in the <em>Level 2: Normality</em> card.</p>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:16px; align-items:flex-start;">
+              <div style="min-width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; color:#fff; flex-shrink:0;">3</div>
+              <div>
+                <strong style="font-size:0.95rem;">Level 3 — Subtype Classification</strong>
+                <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:4px 0 0;">For abnormal scans, the subtype model narrows the finding to a specific condition or pathology class (e.g. adenocarcinoma, glioma). The <em>Level 3: Subtype</em> card shows the predicted class, confidence, and a probability bar chart across all subtype classes.</p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Grad-CAM -->
+        <section class="glass-inner" style="padding:28px; margin-top:24px;">
+          <h2 style="margin:0 0 10px;"><i class="fa-solid fa-eye"></i> Grad-CAM Visualisation</h2>
+          <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+            Gradient-weighted Class Activation Mapping (Grad-CAM) produces a heatmap overlay that highlights <strong style="color:var(--text);">which regions of the image most influenced the model's decision</strong>. Warmer colours (red / orange) indicate high activation — the areas the model paid most attention to. This is shown alongside the original scan so you can visually verify whether the model focused on clinically relevant anatomy. The heatmap is generated for the final classification stage that produced the overall decision.
+          </p>
+        </section>
+
+        <!-- FAQ -->
+        <section class="glass-inner" style="padding:28px; margin-top:24px; margin-bottom:24px;">
+          <h2 style="margin:0 0 18px;"><i class="fa-solid fa-circle-question"></i> Frequently Asked Questions</h2>
+          <div style="display:grid; gap:18px;">
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">What image formats are supported?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">JPEG (.jpg / .jpeg), PNG (.png), BMP (.bmp), and TIFF (.tif / .tiff). Other formats may work if the browser can render them, but are not officially supported.</p>
+            </div>
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">What happens if the model is uncertain?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">Low-confidence predictions are flagged in the warnings section below the stage cards. The Final Decision banner will still display the best prediction, but the confidence score and any warnings should be taken into account before acting on the result.</p>
+            </div>
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">Is my scan data stored or sent to a third party?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">No. Images are processed entirely on the local server and are not persisted after the response is returned. No data is sent to external services.</p>
+            </div>
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">Why did my image fail the modality check?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">The Step 0 gate is trained to detect valid organ scans. Natural photographs, diagrams, screenshots, and heavily compressed or watermarked images are likely to be rejected. Ensure your file is a genuine medical imaging scan.</p>
+            </div>
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">When should I use the manual organ override?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">Use it when you have prior knowledge of the scan's anatomical source and the Level 1 prediction is incorrect or ambiguous. The override forces Levels 2 and 3 to use the selected organ's specialised models, which can improve accuracy in edge cases.</p>
+            </div>
+
+            <div>
+              <strong style="font-size:0.93rem; display:block; margin-bottom:4px;">Where is the exported PDF saved?</strong>
+              <p style="color:var(--text-muted); font-size:0.87rem; line-height:1.7; margin:0;">Reports are saved to the <em>Documents</em> folder on the machine running the backend server. The status message beneath the Export Report button confirms the file path once the report has been generated.</p>
+            </div>
+
+          </div>
+        </section>
+
+      </div><!-- /helpPanel -->
 
     </main>
   </div>
