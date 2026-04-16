@@ -7,6 +7,15 @@ const eyeIcon = document.getElementById("eyeIcon");
 const pwdInput = document.getElementById("password");
 const logoutBtn = document.getElementById("logoutBtn");
 
+const AUTH_PANELS = ['loginPanel', 'createAccountPanel', 'forgotPanel', 'resetPanel'];
+
+function showAuthPanel(id) {
+  AUTH_PANELS.forEach(p => {
+    const el = document.getElementById(p);
+    if (el) el.style.display = p === id ? '' : 'none';
+  });
+}
+
 // Check if user is already logged in
 window.addEventListener('load', () => {
   const isLoggedIn = localStorage.getItem('medai_logged_in');
@@ -20,6 +29,7 @@ window.addEventListener('load', () => {
 function showLoginPage() {
   if (authContainer) authContainer.style.display = 'flex';
   if (dashboardContainer) dashboardContainer.style.display = 'none';
+  showAuthPanel('loginPanel');
 }
 
 function showDashboard() {
@@ -38,16 +48,41 @@ function logout() {
   showToast("Logged out successfully", "success");
 }
 
-// Password visibility toggle
-if (togglePwd && pwdInput) {
-  togglePwd.addEventListener("click", () => {
-    const isHidden = pwdInput.type === "password";
-    pwdInput.type = isHidden ? "text" : "password";
-    if (eyeIcon) eyeIcon.className = isHidden ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
-  });
+function setBtnState(btn, icon, label, disabled, iconClass, labelText) {
+  if (btn) btn.disabled = disabled;
+  if (icon) icon.className = iconClass;
+  if (label) label.textContent = labelText;
 }
 
-// Login form submission
+// ── Password toggles ────────────────────────────────────────────────────────
+function makePwdToggle(toggleId, inputId, iconId) {
+  const toggle = document.getElementById(toggleId);
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (!toggle || !input) return;
+  toggle.addEventListener('click', () => {
+    const hidden = input.type === 'password';
+    input.type = hidden ? 'text' : 'password';
+    if (icon) icon.className = hidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+  });
+}
+makePwdToggle('togglePwd', 'password', 'eyeIcon');
+makePwdToggle('toggleRegPwd', 'regPassword', 'regEyeIcon');
+makePwdToggle('toggleResetPwd', 'resetPassword', 'resetEyeIcon');
+
+// ── Nav links ──────────────────────────────────────────────────────────────
+['backToLoginFromReg', 'backToLoginFromForgot', 'backToLoginFromReset'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', e => { e.preventDefault(); showAuthPanel('loginPanel'); });
+});
+
+const forgotLink = document.getElementById('forgotLink');
+if (forgotLink) forgotLink.addEventListener('click', e => { e.preventDefault(); showAuthPanel('forgotPanel'); });
+
+const createAccountLink = document.getElementById('createAccountLink');
+if (createAccountLink) createAccountLink.addEventListener('click', e => { e.preventDefault(); showAuthPanel('createAccountPanel'); });
+
+// ── Sign In ────────────────────────────────────────────────────────────────
 if (loginForm) {
   loginForm.addEventListener("submit", async e => {
     e.preventDefault();
@@ -60,27 +95,142 @@ if (loginForm) {
     if (!email) { showToast("Please enter your email address.", "error"); return; }
     if (!password) { showToast("Please enter your password.", "error"); return; }
 
-    if (btn) btn.disabled = true;
-    if (label) label.textContent = "Signing in...";
-    if (icon) icon.className = "fa-solid fa-spinner fa-spin";
+    setBtnState(btn, icon, label, true, "fa-solid fa-spinner fa-spin", "Signing in...");
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        localStorage.setItem('medai_logged_in', 'true');
+        localStorage.setItem('medai_user_email', email.toLowerCase());
+        showToast("Login successful!", "success");
+        setTimeout(() => { showDashboard(); loginForm.reset(); }, 800);
+      } else {
+        showToast(data.error || "Login failed.", "error");
+      }
+    } catch (_) {
+      showToast("Could not reach the server.", "error");
+    }
+    setBtnState(btn, icon, label, false, "fa-solid fa-microchip", "Sign In");
+  });
+}
 
-    // Simulate async auth
-    await new Promise(r => setTimeout(r, 1500));
+// ── Create Account ─────────────────────────────────────────────────────────
+const registerForm = document.getElementById("registerForm");
+if (registerForm) {
+  registerForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = document.getElementById("regEmail")?.value.trim();
+    const password = document.getElementById("regPassword")?.value;
+    const confirm = document.getElementById("regConfirm")?.value;
+    const btn = document.getElementById("registerBtn");
+    const label = document.getElementById("regBtnLabel");
+    const icon = document.getElementById("regBtnIcon");
 
-    if (btn) btn.disabled = false;
-    if (label) label.textContent = "Sign In";
-    if (icon) icon.className = "fa-solid fa-microchip";
+    if (!email) { showToast("Please enter an email address.", "error"); return; }
+    if (!password) { showToast("Please enter a password.", "error"); return; }
+    if (password !== confirm) { showToast("Passwords do not match.", "error"); return; }
 
-    // Store login state
-    localStorage.setItem('medai_logged_in', 'true');
-    localStorage.setItem('medai_user_email', email);
+    setBtnState(btn, icon, label, true, "fa-solid fa-spinner fa-spin", "Creating...");
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast("Account created! Please sign in.", "success");
+        registerForm.reset();
+        showAuthPanel('loginPanel');
+      } else {
+        showToast(data.error || "Registration failed.", "error");
+      }
+    } catch (_) {
+      showToast("Could not reach the server.", "error");
+    }
+    setBtnState(btn, icon, label, false, "fa-solid fa-user-plus", "Create Account");
+  });
+}
 
-    showToast("Login successful! Redirecting...", "success");
-    setTimeout(() => {
-      showDashboard();
-      // Clear form
-      if (loginForm) loginForm.reset();
-    }, 1200);
+// ── Forgot Password ────────────────────────────────────────────────────────
+let _forgotEmail = '';
+const forgotForm = document.getElementById("forgotForm");
+if (forgotForm) {
+  forgotForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = document.getElementById("forgotEmail")?.value.trim();
+    const btn = document.getElementById("forgotBtn");
+    const label = document.getElementById("forgotBtnLabel");
+    const icon = document.getElementById("forgotBtnIcon");
+
+    if (!email) { showToast("Please enter your email address.", "error"); return; }
+
+    setBtnState(btn, icon, label, true, "fa-solid fa-spinner fa-spin", "Sending...");
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        _forgotEmail = email;
+        const codeDisplay = document.getElementById('resetCodeDisplay');
+        const codeVal = document.getElementById('resetCodeValue');
+        if (codeDisplay) codeDisplay.style.display = '';
+        if (codeVal) codeVal.textContent = data.code;
+        forgotForm.reset();
+        showAuthPanel('resetPanel');
+      } else {
+        showToast(data.error || "Failed to generate reset code.", "error");
+      }
+    } catch (_) {
+      showToast("Could not reach the server.", "error");
+    }
+    setBtnState(btn, icon, label, false, "fa-solid fa-key", "Send Reset Code");
+  });
+}
+
+// ── Reset Password ─────────────────────────────────────────────────────────
+const resetForm = document.getElementById("resetForm");
+if (resetForm) {
+  resetForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const code = document.getElementById("resetCode")?.value.trim();
+    const newPassword = document.getElementById("resetPassword")?.value;
+    const btn = document.getElementById("resetBtn");
+    const label = document.getElementById("resetBtnLabel");
+    const icon = document.getElementById("resetBtnIcon");
+
+    if (!code) { showToast("Please enter the reset code.", "error"); return; }
+    if (!newPassword) { showToast("Please enter a new password.", "error"); return; }
+
+    setBtnState(btn, icon, label, true, "fa-solid fa-spinner fa-spin", "Resetting...");
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: _forgotEmail, code, new_password: newPassword }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast("Password reset successfully! Please sign in.", "success");
+        resetForm.reset();
+        _forgotEmail = '';
+        const codeDisplay = document.getElementById('resetCodeDisplay');
+        if (codeDisplay) codeDisplay.style.display = 'none';
+        showAuthPanel('loginPanel');
+      } else {
+        showToast(data.error || "Reset failed.", "error");
+      }
+    } catch (_) {
+      showToast("Could not reach the server.", "error");
+    }
+    setBtnState(btn, icon, label, false, "fa-solid fa-lock", "Set New Password");
   });
 }
 

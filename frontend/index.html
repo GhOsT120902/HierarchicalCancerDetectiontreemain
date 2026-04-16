@@ -30,38 +30,118 @@
         MedAI
       </div>
 
-      <p class="auth-subtitle">Intelligent scan analysis powered by deep learning.</p>
-
-      <form id="loginForm" class="auth-form" novalidate>
-        <div class="input-group">
-          <label for="email">Email Address</label>
-          <input type="email" id="email" class="input-field" placeholder="doc@medai.com" required autocomplete="email">
-        </div>
-
-        <div class="input-group">
-          <label for="password">Password</label>
-          <div style="position:relative;">
-            <input type="password" id="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" style="padding-right: 48px;">
-            <button type="button" id="togglePwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px;transition:var(--transition);">
-              <i class="fa-solid fa-eye" id="eyeIcon"></i>
-            </button>
+      <!-- ── PANEL: Sign In ── -->
+      <div id="loginPanel">
+        <p class="auth-subtitle">Intelligent scan analysis powered by deep learning.</p>
+        <form id="loginForm" class="auth-form" novalidate>
+          <div class="input-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" class="input-field" placeholder="doc@medai.com" required autocomplete="email">
           </div>
+          <div class="input-group">
+            <label for="password">Password</label>
+            <div style="position:relative;">
+              <input type="password" id="password" class="input-field" placeholder="••••••••" required autocomplete="current-password" style="padding-right: 48px;">
+              <button type="button" id="togglePwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px;transition:var(--transition);">
+                <i class="fa-solid fa-eye" id="eyeIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:-8px;">
+            <a href="#" id="forgotLink" style="font-size:0.85rem;color:var(--primary-cyan);text-decoration:none;">Forgot password?</a>
+          </div>
+          <button type="submit" class="primary-btn large-btn" id="signInBtn">
+            <i class="fa-solid fa-microchip" id="btnIcon"></i>
+            <span id="btnLabel">Sign In</span>
+          </button>
+          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
+            Don't have an account?
+            <a href="#" id="createAccountLink" style="color:var(--primary-cyan);text-decoration:none;">Create account</a>
+          </p>
+        </form>
+      </div>
+
+      <!-- ── PANEL: Create Account ── -->
+      <div id="createAccountPanel" style="display:none;">
+        <p class="auth-subtitle" style="margin-bottom:18px;">Create your MedAI account.</p>
+        <form id="registerForm" class="auth-form" novalidate>
+          <div class="input-group">
+            <label for="regEmail">Email Address</label>
+            <input type="email" id="regEmail" class="input-field" placeholder="doc@medai.com" required autocomplete="email">
+          </div>
+          <div class="input-group">
+            <label for="regPassword">Password <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">(min. 6 characters)</span></label>
+            <div style="position:relative;">
+              <input type="password" id="regPassword" class="input-field" placeholder="••••••••" required autocomplete="new-password" style="padding-right: 48px;">
+              <button type="button" id="toggleRegPwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px;transition:var(--transition);">
+                <i class="fa-solid fa-eye" id="regEyeIcon"></i>
+              </button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="regConfirm">Confirm Password</label>
+            <input type="password" id="regConfirm" class="input-field" placeholder="••••••••" required autocomplete="new-password">
+          </div>
+          <button type="submit" class="primary-btn large-btn" id="registerBtn">
+            <i class="fa-solid fa-user-plus" id="regBtnIcon"></i>
+            <span id="regBtnLabel">Create Account</span>
+          </button>
+          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
+            Already have an account?
+            <a href="#" id="backToLoginFromReg" style="color:var(--primary-cyan);text-decoration:none;">Sign in</a>
+          </p>
+        </form>
+      </div>
+
+      <!-- ── PANEL: Forgot Password – Step 1 (enter email) ── -->
+      <div id="forgotPanel" style="display:none;">
+        <p class="auth-subtitle" style="margin-bottom:18px;">Enter your email to receive a reset code.</p>
+        <form id="forgotForm" class="auth-form" novalidate>
+          <div class="input-group">
+            <label for="forgotEmail">Email Address</label>
+            <input type="email" id="forgotEmail" class="input-field" placeholder="doc@medai.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="primary-btn large-btn" id="forgotBtn">
+            <i class="fa-solid fa-key" id="forgotBtnIcon"></i>
+            <span id="forgotBtnLabel">Send Reset Code</span>
+          </button>
+          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
+            <a href="#" id="backToLoginFromForgot" style="color:var(--primary-cyan);text-decoration:none;">Back to sign in</a>
+          </p>
+        </form>
+      </div>
+
+      <!-- ── PANEL: Reset Password – Step 2 (enter code + new password) ── -->
+      <div id="resetPanel" style="display:none;">
+        <p class="auth-subtitle" style="margin-bottom:6px;">Enter your reset code and new password.</p>
+        <div id="resetCodeDisplay" style="display:none; margin-bottom:16px; padding:12px 14px; background:rgba(0,240,255,0.08); border:1px solid var(--primary-cyan); border-radius:10px; text-align:center;">
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:6px;">Your reset code (valid 15 minutes):</p>
+          <span id="resetCodeValue" style="font-size:2rem; font-weight:700; letter-spacing:0.2em; color:var(--primary-cyan); font-family:monospace;"></span>
         </div>
+        <form id="resetForm" class="auth-form" novalidate>
+          <div class="input-group">
+            <label for="resetCode">Reset Code</label>
+            <input type="text" id="resetCode" class="input-field" placeholder="123456" required autocomplete="one-time-code" maxlength="6" style="letter-spacing:0.15em; font-size:1.1rem;">
+          </div>
+          <div class="input-group">
+            <label for="resetPassword">New Password <span style="color:var(--text-muted);font-weight:400;font-size:0.8rem;">(min. 6 characters)</span></label>
+            <div style="position:relative;">
+              <input type="password" id="resetPassword" class="input-field" placeholder="••••••••" required autocomplete="new-password" style="padding-right: 48px;">
+              <button type="button" id="toggleResetPwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px;transition:var(--transition);">
+                <i class="fa-solid fa-eye" id="resetEyeIcon"></i>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="primary-btn large-btn" id="resetBtn">
+            <i class="fa-solid fa-lock" id="resetBtnIcon"></i>
+            <span id="resetBtnLabel">Set New Password</span>
+          </button>
+          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
+            <a href="#" id="backToLoginFromReset" style="color:var(--primary-cyan);text-decoration:none;">Back to sign in</a>
+          </p>
+        </form>
+      </div>
 
-        <div style="text-align:right;margin-top:-8px;">
-          <a href="#" style="font-size:0.85rem;color:var(--primary-cyan);text-decoration:none;">Forgot password?</a>
-        </div>
-
-        <button type="submit" class="primary-btn large-btn" id="signInBtn">
-          <i class="fa-solid fa-microchip" id="btnIcon"></i>
-          <span id="btnLabel">Sign In</span>
-        </button>
-
-        <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);margin-top:8px;">
-          Don't have an account?
-          <a href="#" style="color:var(--primary-cyan);text-decoration:none;">Request access</a>
-        </p>
-      </form>
     </div>
   </div>
 
@@ -276,6 +356,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=4"></script>
+  <script src="/app.js?v=5"></script>
 </body>
 </html>

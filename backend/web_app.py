@@ -10,6 +10,7 @@ from pathlib import Path
 import mimetypes
 from urllib.parse import parse_qs, unquote, urlparse
 
+from .auth import create_reset_code, register_user, reset_password, verify_login
 from .inference_engine import HierarchicalCancerInference
 from .report_generator import build_pdf_bytes
 from .utils import (
@@ -115,6 +116,18 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/evaluate':
             self._handle_evaluate_post()
             return
+        if parsed.path == '/api/auth/register':
+            self._handle_auth_register()
+            return
+        if parsed.path == '/api/auth/login':
+            self._handle_auth_login()
+            return
+        if parsed.path == '/api/auth/forgot-password':
+            self._handle_auth_forgot()
+            return
+        if parsed.path == '/api/auth/reset-password':
+            self._handle_auth_reset()
+            return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
     def _handle_predict(self) -> None:
@@ -185,6 +198,50 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': False, 'error': 'Report generation failed. Please try again.'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
         self._send_pdf(pdf, download_name)
+
+    def _handle_auth_register(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', ''))
+        password = str(body.get('password', ''))
+        ok, error = register_user(email, password)
+        self._send_json({'ok': ok, 'error': error})
+
+    def _handle_auth_login(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', ''))
+        password = str(body.get('password', ''))
+        ok, error = verify_login(email, password)
+        self._send_json({'ok': ok, 'error': error})
+
+    def _handle_auth_forgot(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', ''))
+        ok, code, error = create_reset_code(email)
+        self._send_json({'ok': ok, 'code': code if ok else '', 'error': error})
+
+    def _handle_auth_reset(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', ''))
+        code = str(body.get('code', ''))
+        new_password = str(body.get('new_password', ''))
+        ok, error = reset_password(email, code, new_password)
+        self._send_json({'ok': ok, 'error': error})
 
     def _handle_test_images(self) -> None:
         organs: dict[str, dict] = {}
