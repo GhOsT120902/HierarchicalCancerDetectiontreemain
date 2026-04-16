@@ -780,6 +780,31 @@ body.light-theme .input-field {
     background: rgba(255,71,87,0.2) !important;
 }
 
+#organOverride {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-glass);
+    background: var(--bg-panel-solid);
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+#organOverride:focus {
+    outline: none;
+    border-color: var(--primary-cyan);
+    box-shadow: 0 0 0 3px var(--primary-cyan-dim);
+}
+
+body.light-theme #organOverride {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-main);
+    border-color: var(--border-glass);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .sidebar { transform: translateX(-100%); position: fixed; z-index: 1000; }
