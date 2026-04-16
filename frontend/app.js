@@ -610,32 +610,40 @@ if (reportButton) {
     try {
       const [file] = imageInput ? imageInput.files : [null];
       const imageData = file ? await readFileAsDataUrl(file) : null;
-      
-      let payload;
-      try {
-        const response = await fetch("/api/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: latestFilename || latestResult.input?.source || "upload",
-            result: latestResult,
-            image_data: imageData,
-            output_dir: latestModelStatus?.report_output_dir || null,
-          }),
-          timeout: 5000
-        });
-        payload = await response.json();
-        if (!response.ok || !payload.ok) throw new Error(payload.error || "Report generation failed.");
-      } catch (apiError) {
-        // Generate mock report response when backend unavailable
-        console.log("Backend unavailable, generating mock report");
-        payload = {
-          ok: true,
-          report_path: "/reports/medical_report_" + Date.now() + ".pdf"
-        };
+      const filename = latestFilename || latestResult.input?.source || "upload";
+
+      const response = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename,
+          result: latestResult,
+          image_data: imageData,
+        }),
+      });
+
+      if (!response.ok) {
+        let errMsg = "Report generation failed.";
+        try { const j = await response.json(); errMsg = j.error || errMsg; } catch (_) {}
+        throw new Error(errMsg);
       }
-      if (reportStatus) reportStatus.innerHTML = `<i class="fa-solid fa-check" style="color:var(--success)"></i> Report ready: ${payload.report_path}`;
-      showToast("Report generated successfully", "success");
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+      const downloadFilename = nameMatch ? nameMatch[1] : `${(filename.replace(/\.[^.]+$/, "") || "report")}_report.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = downloadFilename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+
+      if (reportStatus) reportStatus.innerHTML = '<i class="fa-solid fa-check" style="color:var(--success)"></i> Report downloaded successfully.';
+      showToast("Report downloaded!", "success");
     } catch (error) {
       if (reportStatus) reportStatus.innerHTML = `<i class="fa-solid fa-xmark" style="color:var(--danger)"></i> ${error.message}`;
       showToast("Failed to export report", "error");

@@ -569,6 +569,10 @@ def _build_pdf_bytes(result: dict[str, object], image_name: str, image_bytes: by
     return bytes(pdf)
 
 
+def build_pdf_bytes(result: dict[str, object], image_name: str, image_bytes: bytes | None = None) -> bytes:
+    return _build_pdf_bytes(result, image_name, image_bytes=image_bytes)
+
+
 def generate_pdf_report(result: dict[str, object], image_name: str, output_dir: str | Path | None = None, image_bytes: bytes | None = None) -> Path:
     destination_dir = Path(output_dir) if output_dir is not None else DEFAULT_REPORT_DIR
     destination_dir.mkdir(parents=True, exist_ok=True)

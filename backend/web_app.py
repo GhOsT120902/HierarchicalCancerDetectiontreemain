@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .inference_engine import HierarchicalCancerInference
-from .report_generator import DEFAULT_REPORT_DIR, generate_text_report
+from .report_generator import build_pdf_bytes
 from .utils import (
     DEFAULT_BLANK_STD_THRESHOLD,
     DEFAULT_BLUR_THRESHOLD,
@@ -116,10 +116,17 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({'ok': False, 'error': 'Report image could not be decoded.'}, status=HTTPStatus.BAD_REQUEST)
                 return
 
+        from datetime import datetime
         filename = str(payload.get('filename') or 'upload')
-        output_dir = payload.get('output_dir') or str(DEFAULT_REPORT_DIR)
-        report_path = generate_text_report(result=result, image_name=filename, output_dir=output_dir, image_bytes=image_bytes)
-        self._send_json({'ok': True, 'report_path': str(report_path)})
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        safe_stem = Path(filename).stem or 'upload'
+        download_name = f'{safe_stem}_report_{timestamp}.pdf'
+        try:
+            pdf = build_pdf_bytes(result=result, image_name=filename, image_bytes=image_bytes)
+        except Exception as exc:
+            self._send_json({'ok': False, 'error': f'Report generation failed: {exc}'}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_pdf(pdf, download_name)
 
     def log_message(self, format: str, *args) -> None:
         return
@@ -158,6 +165,16 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
+
+    def _send_pdf(self, pdf_bytes: bytes, filename: str) -> None:
+        safe_name = filename.replace('"', '_').replace('\\', '_')
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', 'application/pdf')
+        self.send_header('Content-Disposition', f'attachment; filename="{safe_name}"')
+        self.send_header('Content-Length', str(len(pdf_bytes)))
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(pdf_bytes)
 
 
 def build_parser() -> argparse.ArgumentParser:
