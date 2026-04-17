@@ -1106,18 +1106,21 @@ function applyEvalState(data) {
 
   if (log && evalLog) evalLog.textContent = log.join('\n');
 
+  const uploadBtn = document.getElementById('uploadEvalBtn');
   if (status === 'running') {
     if (evalProgressSection) evalProgressSection.style.display = '';
     if (evalResultsSection) evalResultsSection.style.display = 'none';
     if (evalErrorSection) evalErrorSection.style.display = 'none';
     if (evalOrganSelect) evalOrganSelect.disabled = true;
     if (runEvalBtn) { runEvalBtn.disabled = true; runEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...'; }
+    if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.style.opacity = '0.5'; }
     if (evalLog) evalLog.scrollTop = evalLog.scrollHeight;
   } else if (status === 'done') {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
     if (evalErrorSection) evalErrorSection.style.display = 'none';
     if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Re-run Evaluation'; }
+    if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.style.opacity = '1'; uploadBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Run'; }
     renderEvalResults(metrics, organ_filter);
   } else if (status === 'error') {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
@@ -1125,10 +1128,12 @@ function applyEvalState(data) {
     if (evalErrorMsg) evalErrorMsg.textContent = error || 'Unknown error.';
     if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
+    if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.style.opacity = '1'; uploadBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Run'; }
   } else {
     if (evalProgressSection) evalProgressSection.style.display = 'none';
     if (evalOrganSelect) evalOrganSelect.disabled = false;
     if (runEvalBtn) { runEvalBtn.disabled = false; runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation'; }
+    if (uploadBtn && uploadBtn.disabled) { uploadBtn.style.opacity = '0.5'; }
   }
 }
 
@@ -1179,6 +1184,77 @@ if (runEvalBtn) {
       showToast('Could not reach server', 'error');
       runEvalBtn.disabled = false;
       runEvalBtn.innerHTML = '<i class="fa-solid fa-play"></i> Run Evaluation';
+      if (evalOrganSelect) evalOrganSelect.disabled = false;
+    }
+  });
+}
+
+// ── Custom Dataset Upload ───────────────────────────────────────────────────
+const customDatasetInput = document.getElementById('customDatasetInput');
+const customDatasetFilename = document.getElementById('customDatasetFilename');
+const uploadEvalBtn = document.getElementById('uploadEvalBtn');
+
+if (customDatasetInput) {
+  customDatasetInput.addEventListener('change', () => {
+    const file = customDatasetInput.files[0];
+    if (file) {
+      customDatasetFilename.textContent = file.name;
+      uploadEvalBtn.disabled = false;
+      uploadEvalBtn.style.opacity = '1';
+    } else {
+      customDatasetFilename.textContent = 'Choose ZIP file';
+      uploadEvalBtn.disabled = true;
+      uploadEvalBtn.style.opacity = '0.5';
+    }
+  });
+}
+
+if (uploadEvalBtn) {
+  uploadEvalBtn.addEventListener('click', async () => {
+    const file = customDatasetInput ? customDatasetInput.files[0] : null;
+    if (!file) { showToast('Please select a ZIP file first.', 'error'); return; }
+
+    if (evalPollTimer) clearTimeout(evalPollTimer);
+
+    uploadEvalBtn.disabled = true;
+    uploadEvalBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+    if (runEvalBtn) { runEvalBtn.disabled = true; }
+    if (evalOrganSelect) evalOrganSelect.disabled = true;
+    if (evalResultsSection) evalResultsSection.style.display = 'none';
+    if (evalErrorSection) evalErrorSection.style.display = 'none';
+
+    const organFilter = evalOrganSelect ? evalOrganSelect.value : '';
+    const headers = { 'Content-Type': 'application/zip' };
+    if (organFilter) headers['X-Organ-Filter'] = organFilter;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const r = await fetch('/api/evaluate/upload', {
+        method: 'POST',
+        headers,
+        body: arrayBuffer,
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        showToast(data.error || 'Upload failed.', 'error');
+        uploadEvalBtn.disabled = false;
+        uploadEvalBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Run';
+        uploadEvalBtn.style.opacity = '1';
+        if (runEvalBtn) { runEvalBtn.disabled = false; }
+        if (evalOrganSelect) evalOrganSelect.disabled = false;
+        return;
+      }
+      if (evalProgressSection) evalProgressSection.style.display = '';
+      setEvalBadge('running');
+      showToast('Custom dataset uploaded — evaluation started', 'success');
+      uploadEvalBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Run';
+      evalPollTimer = setTimeout(pollEvalStatus, 2500);
+    } catch (err) {
+      showToast('Could not upload dataset — check connection', 'error');
+      uploadEvalBtn.disabled = false;
+      uploadEvalBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Run';
+      uploadEvalBtn.style.opacity = '1';
+      if (runEvalBtn) { runEvalBtn.disabled = false; }
       if (evalOrganSelect) evalOrganSelect.disabled = false;
     }
   });

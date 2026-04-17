@@ -3,7 +3,10 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import shutil
+import tempfile
 import threading
+import zipfile
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,12 +41,26 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
         with server._eval_lock:
             server._eval_log.append(msg)
 
+    temp_dir_to_clean: str | None = None
     try:
         from evaluate_accuracy import collect_image_paths, evaluate, compute_metrics, DEFAULT_TEST_DATA_DIR
         organ_filter = server._eval_organ_filter
-        scope_label = f'organ "{organ_filter}"' if organ_filter else 'all organs'
+
+        with server._eval_lock:
+            custom_dir = server._eval_custom_dir
+            temp_dir_to_clean = server._eval_temp_dir
+
+        if custom_dir is not None:
+            test_data_dir = custom_dir
+            scope_label = f'custom dataset'
+            if organ_filter:
+                scope_label += f' / organ "{organ_filter}"'
+        else:
+            test_data_dir = DEFAULT_TEST_DATA_DIR
+            scope_label = f'organ "{organ_filter}"' if organ_filter else 'all organs'
+
         log(f'Loading test images ({scope_label})...')
-        entries = collect_image_paths(DEFAULT_TEST_DATA_DIR, logger=logger, organ_filter=organ_filter or None)
+        entries = collect_image_paths(test_data_dir, logger=logger, organ_filter=organ_filter or None)
         log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
 
         original_gradcam = server.engine._generate_gradcam
@@ -65,6 +82,15 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
             server._eval_status = 'error'
             server._eval_error = str(exc)
             server._eval_log.append(f'Error: {exc}')
+    finally:
+        if temp_dir_to_clean:
+            try:
+                shutil.rmtree(temp_dir_to_clean, ignore_errors=True)
+            except Exception:
+                pass
+            with server._eval_lock:
+                server._eval_temp_dir = None
+                server._eval_custom_dir = None
 
 
 class InferenceHTTPServer(ThreadingHTTPServer):
@@ -78,6 +104,8 @@ class InferenceHTTPServer(ThreadingHTTPServer):
         self._eval_log: list[str] = []
         self._eval_lock = threading.Lock()
         self._eval_organ_filter: str | None = None
+        self._eval_custom_dir: Path | None = None
+        self._eval_temp_dir: str | None = None
 
 
 class InferenceRequestHandler(BaseHTTPRequestHandler):
@@ -118,6 +146,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/evaluate':
             self._handle_evaluate_post()
+            return
+        if parsed.path == '/api/evaluate/upload':
+            self._handle_evaluate_upload()
             return
         if parsed.path == '/api/auth/register':
             self._handle_auth_register()
@@ -330,6 +361,68 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self.server._eval_organ_filter = organ_filter
             scope_label = f'"{organ_filter}"' if organ_filter else 'all organs'
             self.server._eval_log = [f'Starting evaluation ({scope_label})...']
+        thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
+        thread.start()
+        self._send_json({'ok': True, 'status': 'running'})
+
+    def _handle_evaluate_upload(self) -> None:
+        with self.server._eval_lock:
+            if self.server._eval_status == 'running':
+                self._send_json({'ok': False, 'error': 'Evaluation is already running.'})
+                return
+
+        content_length = self.headers.get('Content-Length')
+        if not content_length:
+            self._send_json({'ok': False, 'error': 'No file data received.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            length = int(content_length)
+        except ValueError:
+            self._send_json({'ok': False, 'error': 'Invalid Content-Length.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if length > 500 * 1024 * 1024:
+            self._send_json({'ok': False, 'error': 'File too large (max 500 MB).'}, status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
+
+        zip_bytes = self.rfile.read(length)
+
+        if not zipfile.is_zipfile(__import__('io').BytesIO(zip_bytes)):
+            self._send_json({'ok': False, 'error': 'Uploaded file is not a valid ZIP archive.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        temp_dir = tempfile.mkdtemp(prefix='medai_eval_')
+        try:
+            with zipfile.ZipFile(__import__('io').BytesIO(zip_bytes)) as zf:
+                zf.extractall(temp_dir)
+        except zipfile.BadZipFile as exc:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            self._send_json({'ok': False, 'error': f'Could not extract ZIP: {exc}'}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        extracted_root = Path(temp_dir)
+        subdirs = [d for d in extracted_root.iterdir() if d.is_dir()]
+        if len(subdirs) == 1:
+            candidate = subdirs[0]
+            inner = [d for d in candidate.iterdir() if d.is_dir()]
+            if inner:
+                extracted_root = candidate
+
+        organ_filter_raw = self.headers.get('X-Organ-Filter') or None
+        organ_filter: str | None = organ_filter_raw.strip() if organ_filter_raw and organ_filter_raw.strip() else None
+
+        with self.server._eval_lock:
+            if self.server._eval_status == 'running':
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                self._send_json({'ok': False, 'error': 'Evaluation is already running.'})
+                return
+            self.server._eval_status = 'running'
+            self.server._eval_metrics = None
+            self.server._eval_error = None
+            self.server._eval_organ_filter = organ_filter
+            self.server._eval_custom_dir = extracted_root
+            self.server._eval_temp_dir = temp_dir
+            self.server._eval_log = ['Starting evaluation on uploaded dataset...']
+
         thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
         thread.start()
         self._send_json({'ok': True, 'status': 'running'})
