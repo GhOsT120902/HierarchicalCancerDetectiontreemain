@@ -27,6 +27,9 @@
     --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     --shadow-glow: 0 0 15px rgba(0, 240, 255, 0.3);
 
+    --glass-bg: rgba(10, 17, 30, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.08);
+
     --radius-sm: 8px;
     --radius-md: 16px;
     --radius-lg: 24px;
@@ -51,6 +54,8 @@ body.light-theme {
     --primary-cyan-dim: rgba(0, 147, 161, 0.15);
     --shadow-glass: 0 8px 32px 0 rgba(100, 110, 140, 0.15);
     --shadow-glow: 0 0 15px rgba(0, 147, 161, 0.2);
+    --glass-bg: rgba(255, 255, 255, 0.98);
+    --glass-border: rgba(0, 0, 0, 0.08);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
