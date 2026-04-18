@@ -63,7 +63,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.models import resnet50, ResNet50_Weights
 from torchvision.transforms import InterpolationMode
@@ -137,6 +137,7 @@ class FlatImageDataset(Dataset):
 
         self.samples: list[tuple[Path, int]] = []
         skipped_folders: list[str] = []
+        bad_images: list[Path] = []
 
         for level1_dir in sorted(data_dir.iterdir()):
             if not level1_dir.is_dir():
@@ -152,8 +153,14 @@ class FlatImageDataset(Dataset):
                     continue
 
                 for img_path in sorted(level2_dir.iterdir()):
-                    if img_path.suffix.lower() in IMAGE_EXTENSIONS:
+                    if img_path.suffix.lower() not in IMAGE_EXTENSIONS:
+                        continue
+                    try:
+                        with Image.open(img_path) as _img:
+                            _img.convert("RGB")
                         self.samples.append((img_path, label_index))
+                    except (UnidentifiedImageError, OSError, ValueError):
+                        bad_images.append(img_path)
 
         if skipped_folders:
             print(f"  [WARN] Skipped {len(skipped_folders)} folder(s) with no label mapping:")
@@ -161,18 +168,21 @@ class FlatImageDataset(Dataset):
                 print(f"         {folder}")
             if len(skipped_folders) > 10:
                 print(f"         ... and {len(skipped_folders) - 10} more")
+        if bad_images:
+            print(f"  [WARN] Skipped {len(bad_images)} unreadable image file(s):"  )
+            for p in bad_images[:5]:
+                print(f"         {p}")
+            if len(bad_images) > 5:
+                print(f"         ... and {len(bad_images) - 5} more")
 
     def __len__(self) -> int:
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         img_path, label = self.samples[idx]
-        try:
-            with Image.open(img_path) as img:
-                img = img.convert("RGB")
-                tensor = self.transform(img)
-        except (UnidentifiedImageError, OSError, ValueError):
-            tensor = torch.zeros(3, IMAGE_SIZE, IMAGE_SIZE)
+        with Image.open(img_path) as img:
+            img = img.convert("RGB")
+            tensor = self.transform(img)
         return tensor, label
 
 
@@ -321,11 +331,14 @@ def main() -> None:
     if args.target == "organ":
         num_classes = len(ORGAN_CLASSES)
         label_to_idx = ORGAN_FOLDER_TO_INDEX
-        best_ckpt_name = "resnet50_organ_classifier_best.pth"
+        # Named to match the app's DEFAULT_ORGAN_CHECKPOINT path so it can be
+        # dropped into models/ directly without renaming.
+        best_ckpt_name = "resnet50_organ_classifier.pth"
         final_ckpt_name = "resnet50_organ_classifier_final.pth"
     else:
         num_classes = len(SUBTYPE_CLASSES)
         label_to_idx = SUBTYPE_FOLDER_TO_INDEX
+        # Named to match the app's DEFAULT_SUBTYPE_CHECKPOINT path.
         best_ckpt_name = "resnet50_subtype_classifier_best.pth"
         final_ckpt_name = "resnet50_subtype_classifier_final.pth"
 
@@ -404,11 +417,11 @@ def main() -> None:
     print(f"Training complete. Best val accuracy: {best_val_acc:.2%}")
     save_checkpoint(model, args.target, num_classes, label_to_idx, final_ckpt_path)
     print()
-    print("To use the best checkpoint, copy it to models/:")
-    if args.target == "organ":
-        print(f"  cp {best_ckpt_path} {PROJECT_ROOT / 'models' / 'resnet50_organ_classifier.pth'}")
+    if args.output_dir.resolve() == (PROJECT_ROOT / "models").resolve():
+        print("Best checkpoint is already in models/ and the app will load it automatically.")
     else:
-        print(f"  cp {best_ckpt_path} {PROJECT_ROOT / 'models' / 'resnet50_subtype_classifier_best.pth'}")
+        print("To deploy the best checkpoint, copy it to models/:")
+        print(f"  cp {best_ckpt_path} {PROJECT_ROOT / 'models' / best_ckpt_name}")
 
 
 if __name__ == "__main__":
