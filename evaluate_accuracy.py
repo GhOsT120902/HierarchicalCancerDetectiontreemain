@@ -179,17 +179,22 @@ def compute_metrics(results: list[dict[str, object]]) -> dict[str, object]:
     normality_total = normality_correct = 0
     subtype_total = subtype_correct = 0
 
-    per_class_organ: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
-    per_class_normality: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
-    per_class_subtype: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
+    per_class_organ:    dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
+    per_class_normality:dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
+    per_class_subtype:  dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "correct": 0})
+
+    # Track how many times each class label was *predicted* (needed for FP → precision).
+    organ_predicted_as:    dict[str, int] = defaultdict(int)
+    normality_predicted_as:dict[str, int] = defaultdict(int)
+    subtype_predicted_as:  dict[str, int] = defaultdict(int)
 
     confusion: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     for r in results:
         gt = r["ground_truth"]
-        true_organ = gt["organ_label"]
+        true_organ     = gt["organ_label"]
         true_normality = gt["expected_normality"]
-        true_subtype = gt["subtype_label"]
+        true_subtype   = gt["subtype_label"]
 
         if r["organ_correct"] is not None:
             organ_total += 1
@@ -197,6 +202,9 @@ def compute_metrics(results: list[dict[str, object]]) -> dict[str, object]:
             if r["organ_correct"]:
                 organ_correct += 1
                 per_class_organ[true_organ]["correct"] += 1
+            pred_organ_label = ORGAN_CLASSES.get(int(r["organ_pred_index"])) if r["organ_pred_index"] is not None else None
+            if pred_organ_label:
+                organ_predicted_as[pred_organ_label] += 1
 
         if r["normality_correct"] is not None:
             normality_total += 1
@@ -204,6 +212,8 @@ def compute_metrics(results: list[dict[str, object]]) -> dict[str, object]:
             if r["normality_correct"]:
                 normality_correct += 1
                 per_class_normality[true_normality]["correct"] += 1
+            if r["normality_pred"]:
+                normality_predicted_as[r["normality_pred"]] += 1
 
         if true_normality == "NORMAL":
             pass
@@ -214,6 +224,8 @@ def compute_metrics(results: list[dict[str, object]]) -> dict[str, object]:
             if r["subtype_correct"]:
                 subtype_correct += 1
                 per_class_subtype[true_subtype]["correct"] += 1
+            if r["subtype_pred_label"]:
+                subtype_predicted_as[str(r["subtype_pred_label"])] += 1
         else:
             per_class_subtype[true_subtype]["total"] += 1
             confusion[true_subtype]["(pipeline_stopped_early)"] += 1
@@ -221,32 +233,35 @@ def compute_metrics(results: list[dict[str, object]]) -> dict[str, object]:
     def pct(num: int, den: int) -> float:
         return round(100.0 * num / den, 2) if den > 0 else 0.0
 
-    per_class_organ_out = {
-        k: {
-            "correct": v["correct"],
-            "total": v["total"],
-            "accuracy_pct": pct(v["correct"], v["total"]),
-        }
-        for k, v in sorted(per_class_organ.items())
-    }
+    def _precision_recall_f1(tp: int, total_true: int, total_predicted: int) -> tuple[float, float, float]:
+        """Return (precision_pct, recall_pct, f1_pct) all in 0-100 range."""
+        fp         = max(0, total_predicted - tp)
+        fn         = total_true - tp
+        precision  = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall     = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1         = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+        return round(precision * 100, 2), round(recall * 100, 2), round(f1 * 100, 2)
 
-    per_class_normality_out = {
-        k: {
-            "correct": v["correct"],
-            "total": v["total"],
-            "accuracy_pct": pct(v["correct"], v["total"]),
-        }
-        for k, v in sorted(per_class_normality.items())
-    }
+    def build_per_class(per_class_map: dict, predicted_as_map: dict) -> dict:
+        out: dict[str, dict] = {}
+        for k, v in sorted(per_class_map.items()):
+            tp             = v["correct"]
+            total_true     = v["total"]
+            total_predicted = predicted_as_map.get(k, 0)
+            precision_pct, recall_pct, f1_pct = _precision_recall_f1(tp, total_true, total_predicted)
+            out[k] = {
+                "correct":      tp,
+                "total":        total_true,
+                "accuracy_pct": pct(tp, total_true),
+                "precision":    precision_pct,
+                "recall":       recall_pct,
+                "f1":           f1_pct,
+            }
+        return out
 
-    per_class_subtype_out = {
-        k: {
-            "correct": v["correct"],
-            "total": v["total"],
-            "accuracy_pct": pct(v["correct"], v["total"]),
-        }
-        for k, v in sorted(per_class_subtype.items())
-    }
+    per_class_organ_out     = build_per_class(per_class_organ,     organ_predicted_as)
+    per_class_normality_out = build_per_class(per_class_normality, normality_predicted_as)
+    per_class_subtype_out   = build_per_class(per_class_subtype,   subtype_predicted_as)
 
     pipeline_statuses: dict[str, int] = defaultdict(int)
     for r in results:

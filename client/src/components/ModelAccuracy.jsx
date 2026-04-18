@@ -62,32 +62,53 @@ function MetricCard({ def, data }) {
   );
 }
 
-function PerClassTable({ title, rows }) {
-  if (!rows?.length) return null;
+function PctBadge({ value }) {
+  const c = pctColor(value ?? 0);
+  return (
+    <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded border ${c.badge}`}>
+      {(value ?? 0).toFixed(1)}%
+    </span>
+  );
+}
+
+function PerClassTable({ title, perClassObj }) {
+  if (!perClassObj || typeof perClassObj !== 'object') return null;
+  const rows = Object.entries(perClassObj);
+  if (!rows.length) return null;
   return (
     <div className="card overflow-x-auto">
       <h3 className="text-sm font-bold mb-3 pb-2" style={{ borderBottom: '1px solid var(--border-color)' }}>
         {title}
       </h3>
-      <table className="w-full text-xs">
+      <table className="w-full text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
         <thead>
           <tr className="text-[var(--text-muted)] text-[10px] uppercase">
-            <th className="text-left py-1.5 pr-4 font-semibold">Class</th>
-            <th className="text-center py-1.5 px-2 font-semibold">Correct / Total</th>
-            <th className="text-right py-1.5 pl-4 font-semibold" style={{ minWidth: 180 }}>Accuracy</th>
+            <th className="text-left py-1.5 pr-4 font-semibold" style={{ minWidth: 160 }}>Class</th>
+            <th className="text-center py-1.5 px-2 font-semibold" style={{ minWidth: 90 }}>Correct&nbsp;/&nbsp;Total</th>
+            <th className="text-center py-1.5 px-2 font-semibold" style={{ minWidth: 130 }}>Accuracy</th>
+            <th className="text-center py-1.5 px-2 font-semibold" style={{ minWidth: 80 }}>Precision</th>
+            <th className="text-center py-1.5 px-2 font-semibold" style={{ minWidth: 80 }}>Recall</th>
+            <th className="text-center py-1.5 px-2 font-semibold" style={{ minWidth: 80 }}>F1</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} style={{ borderTop: '1px solid var(--border-color)' }}>
-              <td className="py-2 pr-4 font-medium text-[var(--text-main)]">
-                {row.label ?? row.class_name}
-              </td>
+          {rows.map(([className, row]) => (
+            <tr key={className} style={{ borderTop: '1px solid var(--border-color)' }}>
+              <td className="py-2 pr-4 font-medium text-[var(--text-main)]">{className}</td>
               <td className="text-center py-2 px-2 font-mono text-[var(--text-muted)]">
                 {row.correct}/{row.total}
               </td>
-              <td className="py-2 pl-4">
+              <td className="py-2 px-2">
                 <AccuracyBar pct={row.accuracy_pct} />
+              </td>
+              <td className="text-center py-2 px-2">
+                <PctBadge value={row.precision} />
+              </td>
+              <td className="text-center py-2 px-2">
+                <PctBadge value={row.recall} />
+              </td>
+              <td className="text-center py-2 px-2">
+                <PctBadge value={row.f1} />
               </td>
             </tr>
           ))}
@@ -421,15 +442,15 @@ export default function ModelAccuracy() {
 
           <PerClassTable
             title="Level 1 — Organ / Tissue (Per Class)"
-            rows={metrics.organ?.per_class}
+            perClassObj={metrics.organ?.per_class}
           />
           <PerClassTable
             title="Level 2 — Normality (Per Class)"
-            rows={metrics.normality?.per_class}
+            perClassObj={metrics.normality?.per_class}
           />
           <PerClassTable
             title="Level 3 — Subtype (Per Class, Abnormal Images)"
-            rows={metrics.subtype?.per_class}
+            perClassObj={metrics.subtype?.per_class}
           />
         </>
       )}
