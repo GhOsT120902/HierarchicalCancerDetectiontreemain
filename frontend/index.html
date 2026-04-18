@@ -380,9 +380,20 @@
             <h3 style="margin:0; font-size:1rem;">Use Your Own Dataset</h3>
             <span style="font-size:0.75rem; color:var(--text-muted); background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); border-radius:var(--radius-pill); padding:2px 10px;">Optional</span>
           </div>
-          <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin-bottom:16px;">
+          <p style="color:var(--text-muted); font-size:0.85rem; line-height:1.6; margin-bottom:12px;">
             Upload a ZIP file containing images in the required folder structure below. The evaluation will run against your dataset instead of the built-in test set.
           </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; background:rgba(0,240,255,0.07); border:1px solid rgba(0,240,255,0.2); border-radius:var(--radius-pill); padding:3px 12px; color:var(--primary-cyan);">
+              <i class="fa-solid fa-file-zipper"></i> Format: .zip only
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; background:rgba(0,240,255,0.07); border:1px solid rgba(0,240,255,0.2); border-radius:var(--radius-pill); padding:3px 12px; color:var(--primary-cyan);">
+              <i class="fa-solid fa-weight-hanging"></i> Max size: 500 MB
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; background:rgba(0,240,255,0.07); border:1px solid rgba(0,240,255,0.2); border-radius:var(--radius-pill); padding:3px 12px; color:var(--primary-cyan);">
+              <i class="fa-solid fa-image"></i> Images inside: JPEG, PNG, BMP, TIFF
+            </span>
+          </div>
           <div style="background:rgba(0,0,0,0.25); border:1px solid var(--border-glass); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:16px; font-family:monospace; font-size:0.8rem; color:var(--text-muted); line-height:1.8;">
             <span style="color:var(--primary-cyan);">YourDataset.zip</span><br>
             &nbsp;&nbsp;<span style="color:var(--text-muted);">&#x251C;&#x2500;&#x2500;</span> Brain Cancer/<br>
@@ -468,9 +479,18 @@
           <!-- Model Accuracy Tab -->
           <section class="glass-inner" style="padding:24px;">
             <h3 style="margin:0 0 10px;"><i class="fa-solid fa-flask-vial"></i> Model Accuracy Tab</h3>
-            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0;">
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0 0 12px;">
               The <strong style="color:var(--text);">Model Accuracy</strong> tab runs every test image in the backend's test set through the full inference pipeline and computes per-stage accuracy metrics. Click <em>Run Evaluation</em> to start — the process can take several minutes on CPU. Results show accuracy cards and per-class breakdowns for each stage.
             </p>
+            <p style="color:var(--text-muted); font-size:0.88rem; line-height:1.7; margin:0 0 10px;">
+              You can also evaluate against your own dataset using the <strong style="color:var(--text);">Use Your Own Dataset</strong> section. Upload requirements:
+            </p>
+            <ul style="color:var(--text-muted); font-size:0.87rem; line-height:1.9; padding-left:1.2rem; margin:0;">
+              <li><strong style="color:var(--text);">File type:</strong> ZIP archive (.zip) only</li>
+              <li><strong style="color:var(--text);">Max file size:</strong> 500 MB</li>
+              <li><strong style="color:var(--text);">Image formats inside the ZIP:</strong> JPEG, PNG, BMP, TIFF</li>
+              <li><strong style="color:var(--text);">Folder structure:</strong> Organ name → subtype subfolder → image files (see the folder tree shown in the upload section)</li>
+            </ul>
           </section>
 
         </div>
