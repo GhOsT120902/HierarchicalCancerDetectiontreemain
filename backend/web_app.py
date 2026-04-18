@@ -14,6 +14,7 @@ import mimetypes
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .auth import change_password, create_reset_code, register_user, reset_password, verify_login
+from .history import add_entry, bulk_import, clear_history, delete_entry, load_history
 from .inference_engine import HierarchicalCancerInference
 from .report_generator import build_pdf_bytes
 from .utils import (
@@ -119,6 +120,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/evaluate':
             self._handle_evaluate_get()
             return
+        if parsed.path == '/api/history':
+            self._handle_history_get()
+            return
         if parsed.path == '/api/test-images':
             self._handle_test_images()
             return
@@ -149,6 +153,18 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/evaluate/upload':
             self._handle_evaluate_upload()
+            return
+        if parsed.path == '/api/history':
+            self._handle_history_post()
+            return
+        if parsed.path == '/api/history/delete':
+            self._handle_history_delete()
+            return
+        if parsed.path == '/api/history/clear':
+            self._handle_history_clear()
+            return
+        if parsed.path == '/api/history/bulk':
+            self._handle_history_bulk()
             return
         if parsed.path == '/api/auth/register':
             self._handle_auth_register()
@@ -426,6 +442,77 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
         thread.start()
         self._send_json({'ok': True, 'status': 'running'})
+
+    def _get_user_email(self) -> str | None:
+        email = (self.headers.get('X-User-Email') or '').strip().lower()
+        return email if email and '@' in email else None
+
+    def _handle_history_get(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        entries = load_history(email)
+        self._send_json({'ok': True, 'entries': entries})
+
+    def _handle_history_post(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        entry = body.get('entry')
+        if not isinstance(entry, dict) or not entry.get('id'):
+            self._send_json({'ok': False, 'error': 'Invalid entry.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        add_entry(email, entry)
+        self._send_json({'ok': True})
+
+    def _handle_history_delete(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        entry_id = body.get('id') or ''
+        if not entry_id:
+            self._send_json({'ok': False, 'error': 'id is required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        delete_entry(email, str(entry_id))
+        self._send_json({'ok': True})
+
+    def _handle_history_clear(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        clear_history(email)
+        self._send_json({'ok': True})
+
+    def _handle_history_bulk(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        entries = body.get('entries')
+        if not isinstance(entries, list):
+            self._send_json({'ok': False, 'error': 'entries must be a list.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        bulk_import(email, entries)
+        self._send_json({'ok': True})
 
     def log_message(self, format: str, *args) -> None:
         return

@@ -39,6 +39,7 @@ function showDashboard() {
     resetResults();
     fetchHealth();
   }
+  migrateLocalHistory().catch(() => {});
 }
 
 function logout() {
@@ -1273,19 +1274,20 @@ if (navAccuracy) {
 }
 
 // ── History Storage ────────────────────────────────────────────────────────
-const HISTORY_MAX = 50;
 
-function historyKey() {
-  const email = localStorage.getItem('medai_user_email') || 'guest';
-  return `medai_history_${email}`;
+function historyAuthHeaders() {
+  const email = localStorage.getItem('medai_user_email') || '';
+  return email ? { 'Content-Type': 'application/json', 'X-User-Email': email } : { 'Content-Type': 'application/json' };
 }
 
-function loadHistoryEntries() {
-  try { return JSON.parse(localStorage.getItem(historyKey()) || '[]'); } catch (_) { return []; }
-}
-
-function saveHistoryEntries(entries) {
-  try { localStorage.setItem(historyKey(), JSON.stringify(entries.slice(0, HISTORY_MAX))); } catch (_) {}
+async function fetchHistoryEntries() {
+  const email = localStorage.getItem('medai_user_email') || '';
+  if (!email) return [];
+  try {
+    const r = await fetch('/api/history', { headers: { 'X-User-Email': email } });
+    const data = await r.json();
+    return data.ok ? (data.entries || []) : [];
+  } catch (_) { return []; }
 }
 
 function compressThumbnail(dataUrl, maxW, maxH, cb) {
@@ -1307,9 +1309,12 @@ function saveHistoryEntry(result, filename, imageDataUrl) {
   const id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   latestHistoryEntryId = id;
   const doSave = (thumb) => {
-    const entries = loadHistoryEntries();
-    entries.unshift({ id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true });
-    saveHistoryEntries(entries);
+    const entry = { id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true };
+    fetch('/api/history', {
+      method: 'POST',
+      headers: historyAuthHeaders(),
+      body: JSON.stringify({ entry }),
+    }).catch(() => {});
   };
   if (imageDataUrl) {
     compressThumbnail(imageDataUrl, 400, 280, thumb => doSave(thumb));
@@ -1318,15 +1323,26 @@ function saveHistoryEntry(result, filename, imageDataUrl) {
   }
 }
 
-function markHistoryEntryReported(result) {
-  const entries = loadHistoryEntries();
-  const decision = result && result.final_decision;
-  const idx = entries.findIndex(e => e.result && e.result.final_decision === decision && !e.hasReport);
-  if (idx !== -1) {
-    entries[idx].hasReport = true;
-    entries[idx].reportResult = result;
-    saveHistoryEntries(entries);
-  }
+function markHistoryEntryReported(_result) {
+  // No-op: entries already have hasReport: true when saved
+}
+
+async function migrateLocalHistory() {
+  const email = localStorage.getItem('medai_user_email') || '';
+  if (!email) return;
+  const localKey = `medai_history_${email}`;
+  const raw = localStorage.getItem(localKey);
+  if (!raw) return;
+  try {
+    const entries = JSON.parse(raw);
+    if (!Array.isArray(entries) || entries.length === 0) { localStorage.removeItem(localKey); return; }
+    await fetch('/api/history/bulk', {
+      method: 'POST',
+      headers: historyAuthHeaders(),
+      body: JSON.stringify({ entries }),
+    });
+    localStorage.removeItem(localKey);
+  } catch (_) {}
 }
 
 // ── History Panel Rendering ────────────────────────────────────────────────
@@ -1342,9 +1358,16 @@ function formatRelativeDate(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function renderHistoryPanel() {
+let _cachedHistoryEntries = null;
+
+async function renderHistoryPanel() {
   if (!historyGrid) return;
-  const entries = loadHistoryEntries();
+  historyGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading history...</div>';
+  if (historyEmpty) historyEmpty.style.display = 'none';
+
+  const entries = await fetchHistoryEntries();
+  _cachedHistoryEntries = entries;
+
   if (entries.length === 0) {
     if (historyEmpty) historyEmpty.style.display = '';
     historyGrid.innerHTML = '';
@@ -1381,10 +1404,9 @@ function renderHistoryPanel() {
   historyGrid.querySelectorAll('.hist-report-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
-      const entry = loadHistoryEntries().find(e => e.id === id);
+      const entry = (_cachedHistoryEntries || []).find(e => e.id === id);
       if (!entry || !entry.result) return;
 
-      // Fast path: blob already in memory cache
       if (reportBlobCache.has(id)) {
         const { blob, dlName } = reportBlobCache.get(id);
         triggerDownload(blob, dlName);
@@ -1417,19 +1439,29 @@ function renderHistoryPanel() {
   });
 
   historyGrid.querySelectorAll('.hist-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
-      const entries = loadHistoryEntries().filter(e => e.id !== id);
-      saveHistoryEntries(entries);
+      const card = historyGrid.querySelector(`[data-id="${id}"]`);
+      if (card) card.style.opacity = '0.4';
+      try {
+        await fetch('/api/history/delete', {
+          method: 'POST',
+          headers: historyAuthHeaders(),
+          body: JSON.stringify({ id }),
+        });
+      } catch (_) {}
       renderHistoryPanel();
     });
   });
 }
 
 if (clearHistoryBtn) {
-  clearHistoryBtn.addEventListener('click', () => {
+  clearHistoryBtn.addEventListener('click', async () => {
     if (!confirm('Clear all history? This cannot be undone.')) return;
-    localStorage.removeItem(historyKey());
+    try {
+      await fetch('/api/history/clear', { method: 'POST', headers: historyAuthHeaders(), body: JSON.stringify({}) });
+    } catch (_) {}
+    _cachedHistoryEntries = null;
     renderHistoryPanel();
     showToast('History cleared', 'success');
   });
