@@ -13,7 +13,7 @@ from pathlib import Path
 import mimetypes
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .auth import change_password, create_reset_code, register_user, reset_password, verify_login
+from .auth import change_password, create_reset_code, register_user, reset_password, verify_google_token, verify_login
 from .history import add_entry, bulk_import, clear_history, delete_entry, load_history
 from .inference_engine import HierarchicalCancerInference
 from .report_generator import build_pdf_bytes
@@ -129,6 +129,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/test-image':
             self._handle_test_image(parsed.query)
             return
+        if parsed.path == '/api/auth/google-client-id':
+            self._handle_google_client_id()
+            return
         if parsed.path in {'/', '/index.html'}:
             self._serve_file(self.server.frontend_dir / 'index.html', 'text/html; charset=utf-8')
             return
@@ -180,6 +183,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/auth/change-password':
             self._handle_auth_change_password()
+            return
+        if parsed.path == '/api/auth/google':
+            self._handle_auth_google()
             return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
@@ -307,6 +313,30 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         new_password = str(body.get('new_password', ''))
         ok, error = reset_password(email, code, new_password)
         self._send_json({'ok': ok, 'error': error})
+
+    def _handle_google_client_id(self) -> None:
+        import os
+        client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+        if not client_id:
+            self._send_json({'ok': False, 'error': 'Google login is not configured.'}, status=HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        self._send_json({'ok': True, 'client_id': client_id})
+
+    def _handle_auth_google(self) -> None:
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        id_token = str(body.get('id_token', ''))
+        if not id_token:
+            self._send_json({'ok': False, 'error': 'id_token is required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        ok, email, error = verify_google_token(id_token)
+        if not ok:
+            self._send_json({'ok': False, 'error': error}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        self._send_json({'ok': True, 'email': email})
 
     def _handle_test_images(self) -> None:
         organs: dict[str, dict] = {}
@@ -596,6 +626,15 @@ def main() -> None:
         device=args.device,
         logger=logger,
     )
+    import os as _os
+    import sys as _sys
+    if not _os.environ.get('GOOGLE_CLIENT_ID', '').strip():
+        logger.error(
+            'GOOGLE_CLIENT_ID is not set. '
+            'Set this environment variable to a valid Google OAuth 2.0 Client ID '
+            'obtained from the Google Cloud Console (APIs & Services → Credentials).'
+        )
+        _sys.exit(1)
     server = InferenceHTTPServer((args.host, args.port), InferenceRequestHandler, engine)
     logger.info('Frontend available at http://%s:%s', args.host, args.port)
     try:

@@ -119,6 +119,76 @@ if (loginForm) {
   });
 }
 
+// ── Google Sign-In ─────────────────────────────────────────────────────────
+(async function initGoogleSignIn() {
+  const container = document.getElementById('googleSignInBtn');
+  if (!container) return;
+
+  function setUnavailable(msg) {
+    console.error(msg);
+    container.innerHTML = `<span style="font-size:0.85rem;color:var(--text-muted);">Google Sign-In unavailable</span>`;
+  }
+
+  let clientId = null;
+  try {
+    const res = await fetch('/api/auth/google-client-id');
+    const data = await res.json();
+    if (data.ok && data.client_id) {
+      clientId = data.client_id;
+    } else {
+      setUnavailable('Google sign-in is not configured: GOOGLE_CLIENT_ID is missing on the server.');
+      return;
+    }
+  } catch (_) {
+    setUnavailable('Could not reach server to initialise Google sign-in.');
+    return;
+  }
+
+  function waitForGIS(cb) {
+    if (window.google && window.google.accounts) { cb(); return; }
+    const t = setInterval(() => {
+      if (window.google && window.google.accounts) { clearInterval(t); cb(); }
+    }, 100);
+  }
+
+  waitForGIS(() => {
+    async function handleGoogleCredential(response) {
+      try {
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_token: response.credential }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          localStorage.setItem('medai_logged_in', 'true');
+          localStorage.setItem('medai_user_email', data.email || '');
+          showToast('Google sign-in successful!', 'success');
+          setTimeout(() => { showDashboard(); }, 800);
+        } else {
+          showToast(data.error || 'Google sign-in failed.', 'error');
+        }
+      } catch (_) {
+        showToast('Could not reach the server.', 'error');
+      }
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleCredential,
+    });
+
+    container.innerHTML = '';
+    window.google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'filled_black',
+      size: 'large',
+      text: 'signin_with',
+      width: 360,
+    });
+  });
+})();
+
 // ── Create Account ─────────────────────────────────────────────────────────
 const registerForm = document.getElementById("registerForm");
 if (registerForm) {

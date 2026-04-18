@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/styles.css?v=9">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -59,6 +60,16 @@
             <a href="#" id="createAccountLink" style="color:var(--primary-cyan);text-decoration:none;">Create account</a>
           </p>
         </form>
+
+        <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px;width:100%;">
+          <div style="flex:1;height:1px;background:rgba(255,255,255,0.12);"></div>
+          <span style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;">or</span>
+          <div style="flex:1;height:1px;background:rgba(255,255,255,0.12);"></div>
+        </div>
+
+        <div id="googleSignInBtn" style="display:flex;justify-content:center;width:100%;margin-top:4px;min-height:44px;align-items:center;">
+          <span id="googleSignInLabel" style="font-size:0.85rem;color:var(--text-muted);">Loading Google Sign-In...</span>
+        </div>
       </div>
 
       <!-- ── PANEL: Create Account ── -->

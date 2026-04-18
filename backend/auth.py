@@ -3,8 +3,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from threading import Lock
 
@@ -84,6 +88,8 @@ def verify_login(email: str, password: str) -> tuple[bool, str]:
     record = users.get(email)
     if not record:
         return False, 'No account found with that email address.'
+    if record.get('google') and 'password_hash' not in record:
+        return False, 'This account uses Google sign-in. Please use the "Sign in with Google" button.'
     expected_hash, _ = _hash_password(password, record['salt'])
     if not hmac.compare_digest(expected_hash, record['password_hash']):
         return False, 'Incorrect password. Please try again.'
@@ -117,6 +123,8 @@ def change_password(email: str, current_password: str, new_password: str) -> tup
         record = users.get(email)
         if not record:
             return False, 'Account not found.'
+        if record.get('google') and 'password_hash' not in record:
+            return False, 'This account uses Google sign-in and does not have a password.'
         expected_hash, _ = _hash_password(current_password, record['salt'])
         if not hmac.compare_digest(expected_hash, record['password_hash']):
             return False, 'Current password is incorrect.'
@@ -150,3 +158,61 @@ def reset_password(email: str, code: str, new_password: str) -> tuple[bool, str]
         del codes[email]
         _save_reset_codes(codes)
     return True, ''
+
+
+def verify_google_token(id_token: str) -> tuple[bool, str, str]:
+    """Verify a Google ID token and return (ok, email, error_message).
+
+    Calls Google's tokeninfo endpoint, validates the audience against
+    GOOGLE_CLIENT_ID, and auto-registers the user if they don't exist.
+    """
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+    if not client_id:
+        return False, '', 'Google login is not configured (GOOGLE_CLIENT_ID missing).'
+
+    url = f'https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(id_token)}'
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            payload = json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as exc:
+        try:
+            err_body = json.loads(exc.read().decode('utf-8'))
+            err_desc = err_body.get('error_description', str(exc))
+        except Exception:
+            err_desc = str(exc)
+        return False, '', f'Google token verification failed: {err_desc}'
+    except Exception as exc:
+        return False, '', f'Could not reach Google token endpoint: {exc}'
+
+    aud = payload.get('aud', '')
+    if aud != client_id:
+        return False, '', 'Google token audience mismatch.'
+
+    iss = payload.get('iss', '')
+    if iss not in ('accounts.google.com', 'https://accounts.google.com'):
+        return False, '', 'Google token issuer is invalid.'
+
+    if payload.get('email_verified') != 'true':
+        return False, '', 'Google account email is not verified.'
+
+    email = payload.get('email', '').strip().lower()
+    if not email:
+        return False, '', 'No email address returned by Google.'
+
+    with _lock:
+        users = _load_users()
+        record = users.get(email)
+        if record is not None:
+            if not record.get('google') or 'password_hash' in record:
+                return False, '', (
+                    'An account with this email already exists. '
+                    'Please sign in with your email and password.'
+                )
+        else:
+            users[email] = {
+                'google': True,
+                'created_at': time.time(),
+            }
+            _save_users(users)
+
+    return True, email, ''
