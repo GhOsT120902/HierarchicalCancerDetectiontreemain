@@ -253,7 +253,7 @@ if (forgotForm) {
         showToast("Reset code sent — check your inbox.", "success");
         showAuthPanel('resetPanel');
       } else {
-        showToast(data.error || "Failed to send reset code.", "error");
+        showToast(data.error || "Failed to send reset code.", "error", 7000);
       }
     } catch (_) {
       showToast("Could not reach the server.", "error");
@@ -346,7 +346,7 @@ const sidebar = document.getElementById('sidebar');
 const toastContainer = document.getElementById('toastContainer');
 
 // ── Toast Notifications ────────────────────────────────────────────────────
-function showToast(message, type = 'success') {
+function showToast(message, type = 'success', duration = 4000) {
   const container = document.getElementById('toastContainer');
   if (!container) {
     console.log(`[Toast] ${type}: ${message}`);
@@ -362,7 +362,7 @@ function showToast(message, type = 'success') {
   setTimeout(() => {
     toast.style.animation = 'slideOut 0.3s forwards';
     setTimeout(() => toast.remove(), 320);
-  }, 4000);
+  }, duration);
 }
 
 // ── Theme & Sidebar ────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ FROM_NAME = 'MedAI'
 def send_reset_code(to_email: str, code: str) -> tuple[bool, str]:
     api_key = os.environ.get('RESEND_API_KEY', '').strip()
     if not api_key:
-        logger.error('RESEND_API_KEY is not set — cannot send email.')
+        logger.critical('RESEND_API_KEY is not set — password reset emails cannot be sent. Set the RESEND_API_KEY environment variable.')
         return False, 'Email service is not configured. Please contact the administrator.'
 
     try:
@@ -100,5 +100,34 @@ def send_reset_code(to_email: str, code: str) -> tuple[bool, str]:
         resend.Emails.send(params)
         return True, ''
     except Exception as exc:
-        logger.error('Failed to send reset email to %s: %s', to_email, exc, exc_info=True)
-        return False, 'Failed to send reset email. Please try again later.'
+        exc_str = str(exc).lower()
+        if any(kw in exc_str for kw in ('api_key', 'invalid_api_key', '401', 'unauthorized', 'authentication')):
+            logger.critical(
+                'RESEND API KEY IS INVALID — password reset emails cannot be delivered. '
+                'Check the RESEND_API_KEY environment variable. Error: %s',
+                exc, exc_info=True,
+            )
+            return False, (
+                'Email service is misconfigured and the reset email could not be sent. '
+                'Please contact the administrator.'
+            )
+        if any(kw in exc_str for kw in ('rate_limit', 'rate limit', '429', 'too many requests')):
+            logger.error(
+                'Resend rate limit exceeded — could not send reset email to %s: %s',
+                to_email, exc, exc_info=True,
+            )
+            return False, 'Too many email requests. Please wait a minute and try again.'
+        if any(kw in exc_str for kw in ('domain', 'not_verified', 'sender', 'from address')):
+            logger.critical(
+                'Resend domain/sender verification issue — password reset emails cannot be delivered. '
+                'Check the sending domain configuration in Resend. Error: %s',
+                exc, exc_info=True,
+            )
+            return False, (
+                'Email service is misconfigured and the reset email could not be sent. '
+                'Please contact the administrator.'
+            )
+        logger.error(
+            'Failed to send reset email to %s: %s', to_email, exc, exc_info=True,
+        )
+        return False, 'Failed to send the reset email. Please try again or contact support if the problem persists.'
