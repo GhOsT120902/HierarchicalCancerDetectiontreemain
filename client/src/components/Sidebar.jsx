@@ -1,13 +1,14 @@
-import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, History, Settings, Moon, Sun, LogOut } from 'lucide-react';
+import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, History, Settings, FlaskConical, Moon, Sun, LogOut } from 'lucide-react';
 
 export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setActiveTab }) {
   const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Upload Scan', icon: UploadIcon },
-    { name: 'Results', icon: BarChart2 },
-    { name: 'Reports', icon: FileText },
-    { name: 'History', icon: History },
-    { name: 'Settings', icon: Settings },
+    { name: 'Dashboard',      icon: LayoutDashboard },
+    { name: 'Upload Scan',    icon: UploadIcon },
+    { name: 'Results',        icon: BarChart2 },
+    { name: 'Reports',        icon: FileText },
+    { name: 'Model Accuracy', icon: FlaskConical },
+    { name: 'History',        icon: History },
+    { name: 'Settings',       icon: Settings },
   ];
 
   return (

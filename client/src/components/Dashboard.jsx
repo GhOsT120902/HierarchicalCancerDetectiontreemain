@@ -4,6 +4,7 @@ import Header from './Header';
 import HeroSection from './HeroSection';
 import UploadWorkflow from './UploadWorkflow';
 import DiagnosticResults from './DiagnosticResults';
+import ModelAccuracy from './ModelAccuracy';
 
 export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [modelStatus, setModelStatus] = useState(null);
@@ -73,23 +74,31 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
-            <HeroSection modelStatus={modelStatus} />
 
-            {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 px-4 py-3 text-sm">
-                {error}
-              </div>
+            {activeTab === 'Model Accuracy' ? (
+              <ModelAccuracy />
+            ) : (
+              <>
+                <HeroSection modelStatus={modelStatus} />
+
+                {error && (
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 px-4 py-3 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <UploadWorkflow
+                    modelStatus={modelStatus}
+                    onPredict={handlePredict}
+                    isProcessing={isProcessing}
+                    result={result}
+                  />
+                  <DiagnosticResults result={result} />
+                </div>
+              </>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <UploadWorkflow
-                modelStatus={modelStatus}
-                onPredict={handlePredict}
-                isProcessing={isProcessing}
-                result={result}
-              />
-              <DiagnosticResults result={result} />
-            </div>
           </div>
         </main>
       </div>
