@@ -1,6 +1,6 @@
-import { Brain, Stethoscope, Play } from 'lucide-react';
+import { Brain, Stethoscope } from 'lucide-react';
 
-export default function HeroSection({ modelStatus }) {
+export default function HeroSection({ modelStatus, onUploadClick }) {
   const isError = modelStatus?.error || !modelStatus;
 
   return (
@@ -27,12 +27,11 @@ export default function HeroSection({ modelStatus }) {
           </p>
 
           <div className="flex flex-wrap gap-4 pt-2">
-            <button className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-lg shadow-cyan-500/20">
+            <button
+              onClick={onUploadClick}
+              className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-lg shadow-cyan-500/20"
+            >
               Upload Scan
-            </button>
-            <button className="border border-white/30 hover:bg-white/10 text-white font-medium py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2">
-              <Play size={18} fill="currentColor" />
-              Live Demo
             </button>
           </div>
         </div>
