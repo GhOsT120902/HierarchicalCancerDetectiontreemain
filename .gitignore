@@ -1,1 +1,3 @@
 data/credentials/reset_codes.json
+client/node_modules/
+client/dist/
