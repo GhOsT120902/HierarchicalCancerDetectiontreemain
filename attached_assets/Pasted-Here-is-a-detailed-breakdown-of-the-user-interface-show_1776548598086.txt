@@ -1,0 +1,101 @@
+Here is a detailed breakdown of the user interface shown in the video, followed by a comprehensive prompt you can plug directly into Replit (or similar AI-assisted development environments like Cursor or v0) to recreate it.
+
+### **UI Description Breakdown**
+
+**1. Overall Theme & Layout**
+* **Style**: Modern, clean, dashboard-style medical application.
+* **Theme**: The video demonstrates both a Dark Mode (default, deep navy/charcoal backgrounds) and a Light Mode (white/light gray backgrounds).
+* **Layout**: A persistent left sidebar for navigation and a main scrollable content area on the right. The main area is divided into a top header, a hero/summary section, and a split-pane lower section for workflows and results.
+
+**2. Navigation Sidebar (Left)**
+* **Branding**: "MedAI" logo at the top.
+* **Menu Items**: Dashboard (active), Upload Scan, Results, History, Settings.
+* **Footer**: A Light/Dark mode toggle button at the bottom.
+
+**3. Top Header Bar**
+* **Search**: A subtle search bar with placeholder text "Search patient ID, scans...".
+* **Status Indicators**: A green badge reading "System Active".
+* **User Profile**: Avatar and name ("Dr. D...") in the top right corner.
+
+**4. Hero Section**
+* **Tagline**: Small teal badge text reading "DECISION SUPPORT PIPELINE".
+* **Title**: Large, bold heading: "AI Powered Cancer Imaging Classification System".
+* **Description**: "Intelligent scan analysis powered by deep learning. Step 0 validates the input and estimates modality, Level 1 routes tissue, Level 2 decides normal versus abnormal, and Level 3 explains subtype risk with filtered probabilities and safety warnings."
+* **Call-to-Action (CTA) Buttons**: Primary "Upload Scan" (teal background) and secondary "Live Demo" (ghost/text button with a play icon).
+* **Metric Cards (Right side)**:
+    * "Model Accuracy" with a brain icon: 99.8%
+    * "Scans Analyzed" with a lung icon: 12,450+
+* **Platform Status Box**: A dark card showing "Platform Status" with yellow warning text reading "Could not reach the local inference server."
+
+**5. Main Content Area (Split into two columns)**
+* **Left Column: "Upload Workflow"**
+    * **Drag & Drop Area**: A dashed bordered box saying "Drag & Drop your scan here or click to browse from system".
+    * **Preview Area**: A box below it for "Image preview appears here".
+    * **Controls**: A checkbox for "Allow override when Step 0 or Level 1 is uncertain" and a dropdown for "Manual organ/tissue override" (default set to "No override").
+    * **Action Buttons**: "Run Intelligent Pipeline" (primary teal) and "Export Report" (secondary outline).
+    * **Footer Text**: "Reports are saved to your Documents folder."
+* **Right Column: "Diagnostic Results"**
+    * **Empty State**: A large prominent box reading "No Results Yet" with subtext "Upload an image to see modality validation, tissue routing, normality, subtype analysis, and explanations."
+    * **Stages Grid**: A 2x2 grid displaying placeholders for Step 0 (Modality), Level 1 (Tissue), Level 2 (Normality), and Level 3 (Subtype). All currently read "No result available for this stage."
+    * **Review & Graphs Sections**: Placeholders for "Grad-CAM Review", "Organ Probability Graph", and "Subtype Probability Graph".
+    * **Developer API**: A collapsible section for "< /> Developer API Data (Raw JSON)".
+
+---
+
+### **Prompt for Replit / AI UI Generator**
+
+Copy and paste the following prompt into Replit, v0, or Cursor to generate a React/Tailwind replica of this application. 
+
+```text
+Build a modern, responsive medical AI dashboard UI using React, Tailwind CSS, and Lucide React icons. The application must support a toggleable Light and Dark mode (default to Dark mode).
+
+Color Palette (Dark Mode):
+- Background: Very deep navy/charcoal (e.g., bg-slate-900)
+- Cards/Containers: Slightly lighter navy (e.g., bg-slate-800)
+- Accents: Bright Cyan/Teal (e.g., text-cyan-400, bg-cyan-500)
+- Text: White/Off-white for primary, slate-400 for secondary.
+
+Layout Requirements:
+1. Sidebar (Left, Fixed):
+- "MedAI" logo at the top.
+- Navigation links: Dashboard (active), Upload Scan, Results, History, Settings.
+- Bottom: Theme toggle button (Dark/Light Mode).
+
+2. Top Header:
+- Search input with a magnifying glass icon placeholder "Search patient ID, scans...".
+- Right-aligned green status badge "System Active" and a user avatar.
+
+3. Main Content Area - Hero Section:
+- Top left: Small badge text "DECISION SUPPORT PIPELINE" in cyan.
+- Heading: "AI Powered Cancer Imaging Classification System" (large, bold).
+- Paragraph: "Intelligent scan analysis powered by deep learning. Step 0 validates the input and estimates modality, Level 1 routes tissue, Level 2 decides normal versus abnormal, and Level 3 explains subtype risk with filtered probabilities and safety warnings."
+- Buttons: Primary "Upload Scan" (cyan background, dark text) and secondary "Live Demo" (transparent, white text, play icon).
+- Top right metric cards: "Model Accuracy: 99.8%" (with brain icon) and "Scans Analyzed: 12,450+" (with lung icon).
+- Below metrics: A "Platform Status" card with yellow text: "Could not reach the local inference server."
+
+4. Main Content Area - Split Layout (Below Hero):
+Use a CSS grid (2 columns on large screens).
+
+Column 1: "Upload Workflow" Card
+- Title: Upload Workflow
+- A dashed-border Drag & Drop zone: "Drag & Drop your scan here or click to browse from system".
+- An image preview box: "Image preview appears here".
+- A checkbox: "Allow override when Step 0 or Level 1 is uncertain".
+- A dropdown labeled "Manual organ/tissue override", default value "No override".
+- A primary button "Run Intelligent Pipeline" (cyan) and a secondary button "Export Report" (outline).
+- Tiny footer text: "Reports are saved to your Documents folder."
+
+Column 2: "Diagnostic Results" Card
+- Title: Diagnostic Results
+- A prominent empty state box centered: "No Results Yet" and "Upload an image to see modality validation, tissue routing, normality, subtype analysis, and explanations."
+- A 2x2 grid of smaller cards:
+  - Step 0: Modality
+  - Level 1: Tissue
+  - Level 2: Normality
+  - Level 3: Subtype
+  (All should contain greyed-out subtext: "No result available for this stage.")
+- Below the grid, list stacked placeholder sections: "Grad-CAM Review", "Organ Probability Graph", and "Subtype Probability Graph".
+- At the very bottom: A collapsible accordion item for "< /> Developer API Data (Raw JSON)".
+
+Ensure the UI is fully responsive, looking good on both desktop and tablet screens. Add subtle hover effects to buttons and sidebar links.
+```
