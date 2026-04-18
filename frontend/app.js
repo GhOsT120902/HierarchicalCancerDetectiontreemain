@@ -180,10 +180,11 @@ if (loginForm) {
 
     container.innerHTML = '';
     window.google.accounts.id.renderButton(container, {
-      type: 'icon',
+      type: 'standard',
       theme: 'filled_black',
-      size: 'medium',
-      shape: 'circle',
+      size: 'large',
+      text: 'signin_with',
+      width: 360,
     });
   });
 })();
