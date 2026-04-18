@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FlaskConical, Play, RotateCcw, Upload, FolderOpen,
-  Loader2, CheckCircle2, AlertTriangle, Filter, X,
+  Loader2, CheckCircle2, AlertTriangle, Filter, X, Download,
 } from 'lucide-react';
 
 const ORGAN_OPTIONS = [
@@ -264,6 +264,44 @@ export default function ModelAccuracy() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const downloadCSV = () => {
+    if (!metrics) return;
+    const rows = [];
+    rows.push(['Section', 'Class', 'Correct', 'Total', 'Accuracy %', 'Precision %', 'Recall %', 'F1 %']);
+
+    LEVEL_DEFS.forEach(def => {
+      const data = metrics[def.key];
+      if (!data) return;
+      rows.push([def.label, 'OVERALL', data.correct ?? '', data.evaluated ?? '', data.accuracy_pct ?? '', '', '', '']);
+      const perClass = data.per_class;
+      if (perClass && typeof perClass === 'object') {
+        Object.entries(perClass).forEach(([className, row]) => {
+          rows.push([
+            def.label,
+            className,
+            row.correct ?? '',
+            row.total ?? '',
+            (row.accuracy_pct ?? 0).toFixed(1),
+            (row.precision ?? 0).toFixed(1),
+            (row.recall ?? 0).toFixed(1),
+            (row.f1 ?? 0).toFixed(1),
+          ]);
+        });
+      }
+    });
+
+    const csvContent = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const organ = scopeLabel && scopeLabel !== 'All Organs' ? scopeLabel.replace(/\s+/g, '') : 'AllOrgans';
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `medai_eval_${organ}_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
 
@@ -452,6 +490,16 @@ export default function ModelAccuracy() {
             title="Level 3 — Subtype (Per Class, Abnormal Images)"
             perClassObj={metrics.subtype?.per_class}
           />
+
+          <div className="flex justify-end">
+            <button
+              onClick={downloadCSV}
+              className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-cyan-500/40 text-cyan-500 hover:bg-cyan-500/10 transition-colors"
+            >
+              <Download size={15} />
+              Download CSV
+            </button>
+          </div>
         </>
       )}
 
