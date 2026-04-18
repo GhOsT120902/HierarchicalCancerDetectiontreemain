@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "WXLLWxIxqF3RZRUrARY2P"
+uri = "file://scripts/TRAINING_GUIDE.md"
+type = "text"
+title = "MedAI ResNet50 Training Guide"
