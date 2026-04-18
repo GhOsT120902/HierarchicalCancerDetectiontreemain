@@ -6,17 +6,22 @@ Trains a ResNet50 image classifier for either the organ-level or subtype-level
 stage of the hierarchical cancer inference pipeline and saves a checkpoint that
 the existing ``backend/model_loader.py`` can load without any modifications.
 
-Hardware target
----------------
-Optimised for a GTX 1660 Ti (6 GB VRAM) + i7-9750H (6-core) setup:
-  - Automatic Mixed Precision (AMP) halves VRAM use and speeds up training.
-  - num_workers auto-detected to keep the GPU fed without CPU bottleneck.
-  - Default batch size of 32 fits comfortably in 6 GB.
-  - Staged fine-tuning (freeze backbone first, then unfreeze) avoids
-    destroying pretrained features during the first few epochs.
+Hardware targets
+----------------
+Google Colab Tesla T4 (16 GB VRAM):
+  - Default batch size 64 fills the T4 comfortably with FP16 AMP.
+  - num_workers=2 keeps the T4 saturated without competing with Colab's
+    CPU-intensive Drive I/O.
+  - Dataset must be copied to /content/ (local SSD) before training —
+    reading a 10 GB dataset directly from Google Drive causes severe I/O
+    stalls that can triple epoch time.  See the Colab Setup section below.
 
-Usage — local
--------------
+GTX 1660 Ti (6 GB VRAM) + i7-9750H:
+  - Use --batch-size 32 and --num-workers 4 locally.
+  - AMP halves VRAM use; staged fine-tuning protects pretrained features.
+
+Usage — local (GTX 1660 Ti)
+----------------------------
     python scripts/train.py --target organ  --data-dir /path/to/dataset
     python scripts/train.py --target subtype --data-dir /path/to/dataset
 
@@ -34,29 +39,57 @@ Usage — local
         --num-workers 4 \\
         --device cuda
 
-Usage — Google Colab (GPU runtime recommended)
-----------------------------------------------
-    # Cell 1 — clone repo and install deps
+Usage — Google Colab (Tesla T4, 16 GB VRAM)
+--------------------------------------------
+IMPORTANT: Copy your dataset from Drive to /content/ BEFORE training.
+Reading a 10 GB dataset directly from Google Drive introduces severe I/O
+latency that keeps the GPU idle between batches.
+
+    # ── Cell 1: Runtime setup ────────────────────────────────────────────────
     !git clone https://github.com/<your-username>/<your-repo>.git
     %cd <your-repo>
     !pip install -q torch torchvision pillow
 
-    # Cell 2 — mount Drive and point at your dataset
+    # ── Cell 2: Mount Google Drive ────────────────────────────────────────────
     from google.colab import drive
     drive.mount('/content/drive')
 
-    # Cell 3 — train
+    # ── Cell 3: Copy & unzip dataset to local SSD (critical for speed) ────────
+    # Copying to /content/ avoids slow Drive I/O during training.
+    # A 10 GB zip typically takes 3–5 minutes to transfer; this saves far
+    # more time across all epochs.
+    import shutil, zipfile, os
+
+    DRIVE_ZIP  = "/content/drive/MyDrive/YourDataset.zip"
+    LOCAL_ZIP  = "/content/YourDataset.zip"
+    LOCAL_DATA = "/content/dataset"
+
+    if not os.path.exists(LOCAL_DATA):
+        print("Copying dataset from Drive to local SSD...")
+        shutil.copy2(DRIVE_ZIP, LOCAL_ZIP)          # Drive → local SSD
+        print("Unzipping...")
+        with zipfile.ZipFile(LOCAL_ZIP, "r") as zf:
+            zf.extractall(LOCAL_DATA)
+        os.remove(LOCAL_ZIP)                        # free space
+        print(f"Dataset ready at {LOCAL_DATA}")
+    else:
+        print("Dataset already extracted, skipping.")
+
+    # ── Cell 4: Train (batch 64 saturates T4's 16 GB with FP16) ──────────────
     !python scripts/train.py \\
         --target organ \\
-        --data-dir "/content/drive/MyDrive/YourDataset" \\
+        --data-dir /content/dataset \\
         --epochs 30 \\
-        --batch-size 32 \\
+        --freeze-epochs 5 \\
+        --batch-size 64 \\
+        --num-workers 2 \\
         --device cuda
 
-    # Cell 4 — copy best checkpoint to Drive for safekeeping
+    # ── Cell 5: Save best checkpoint back to Drive ────────────────────────────
     import shutil
     shutil.copy("models/resnet50_organ_classifier.pth",
                 "/content/drive/MyDrive/models/resnet50_organ_classifier.pth")
+    print("Checkpoint saved to Drive.")
 
 Dataset folder structure
 ------------------------
@@ -434,8 +467,8 @@ def main() -> None:
                         help="Total number of training epochs.")
     parser.add_argument("--freeze-epochs", type=int,   default=5,
                         help="Epochs to train only the FC head before unfreezing top layers.")
-    parser.add_argument("--batch-size",    type=int,   default=32,
-                        help="Mini-batch size (16–32 recommended for 6 GB VRAM).")
+    parser.add_argument("--batch-size",    type=int,   default=64,
+                        help="Mini-batch size (64 for Colab T4 16 GB, 32 for GTX 1660 Ti 6 GB).")
     parser.add_argument("--lr",            type=float, default=1e-3,
                         help="Learning rate for the classifier head.")
     parser.add_argument("--lr-backbone",   type=float, default=1e-4,
@@ -469,10 +502,13 @@ def main() -> None:
     use_amp = (device.type == "cuda") and (not args.no_amp)
     scaler  = torch.cuda.amp.GradScaler(enabled=use_amp)
 
-    # ── num_workers: balance i7-9750H (12 logical) against GPU feed ───────────
+    # ── num_workers ───────────────────────────────────────────────────────────
+    # 2 workers is the sweet spot for Colab T4: enough to hide I/O latency
+    # without starving Colab's CPU of the threads it needs for Drive I/O.
+    # On a local i7-9750H you can pass --num-workers 4 for higher throughput.
     if args.num_workers == -1:
         if device.type == "cuda":
-            num_workers = min(4, (os.cpu_count() or 1))
+            num_workers = 2
         else:
             num_workers = 0
     else:
