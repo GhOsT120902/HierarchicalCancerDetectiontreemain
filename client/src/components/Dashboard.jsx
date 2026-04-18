@@ -5,6 +5,7 @@ import HeroSection from './HeroSection';
 import UploadWorkflow from './UploadWorkflow';
 import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
+import HistoryPanel from './HistoryPanel';
 
 export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [modelStatus, setModelStatus] = useState(null);
@@ -77,6 +78,8 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
             {activeTab === 'Model Accuracy' ? (
               <ModelAccuracy />
+            ) : activeTab === 'History' ? (
+              <HistoryPanel />
             ) : (
               <>
                 <HeroSection modelStatus={modelStatus} />

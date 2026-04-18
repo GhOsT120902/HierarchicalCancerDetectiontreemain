@@ -1,5 +1,39 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload as UploadIcon, FileText, Image as ImageIcon, X } from 'lucide-react';
+
+function compressThumbnail(dataUrl, maxW, maxH) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+async function saveHistoryEntry(result, filename, imageDataUrl) {
+  const email = localStorage.getItem('medai_user_email') || '';
+  if (!email || !result) return;
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const thumb = imageDataUrl ? await compressThumbnail(imageDataUrl, 400, 280) : null;
+  const entry = { id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true };
+  try {
+    await fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Email': email },
+      body: JSON.stringify({ entry }),
+    });
+  } catch {
+  }
+}
 
 export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, result }) {
   const [file, setFile] = useState(null);
@@ -8,6 +42,14 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   const [allowOverride, setAllowOverride] = useState(false);
   const [organOverride, setOrganOverride] = useState('');
   const fileInputRef = useRef(null);
+  const savedResultRef = useRef(null);
+
+  useEffect(() => {
+    if (result && result !== savedResultRef.current && file && imageData) {
+      savedResultRef.current = result;
+      saveHistoryEntry(result, file.name, imageData);
+    }
+  }, [result, file, imageData]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
