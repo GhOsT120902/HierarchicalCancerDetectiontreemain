@@ -1088,3 +1088,13 @@ body.light-mode .profile-btn { color: #fff; }
 
 body.light-mode .history-card { background: rgba(255,255,255,0.85); }
 body.light-mode .history-card-thumb-placeholder { background: rgba(0,0,0,0.06); }
+
+/* Google Sign-In translucent container */
+.google-auth-container {
+  width: 100%;
+  opacity: 0.6;
+  transition: opacity 0.25s ease;
+}
+.google-auth-container:hover {
+  opacity: 1;
+}
