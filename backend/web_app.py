@@ -33,7 +33,9 @@ from .utils import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = PROJECT_ROOT / 'frontend'
+_REACT_DIST_DIR = PROJECT_ROOT / 'client' / 'dist'
+_LEGACY_FRONTEND_DIR = PROJECT_ROOT / 'frontend'
+FRONTEND_DIR = _REACT_DIST_DIR if _REACT_DIST_DIR.is_dir() else _LEGACY_FRONTEND_DIR
 TEST_DATA_DIR = PROJECT_ROOT / 'Test Data' / 'Test Data'
 _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
 
@@ -136,16 +138,10 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/auth/google-client-id':
             self._handle_google_client_id()
             return
-        if parsed.path in {'/', '/index.html'}:
-            self._serve_file(self.server.frontend_dir / 'index.html', 'text/html; charset=utf-8')
+        if parsed.path.startswith('/api/'):
+            self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
             return
-        if parsed.path == '/styles.css':
-            self._serve_file(self.server.frontend_dir / 'styles.css', 'text/css; charset=utf-8')
-            return
-        if parsed.path == '/app.js':
-            self._serve_file(self.server.frontend_dir / 'app.js', 'application/javascript; charset=utf-8')
-            return
-        self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
+        self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
@@ -573,6 +569,25 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return json.loads(body.decode('utf-8'))
         except json.JSONDecodeError as exc:
             raise ValueError('Request body must be valid JSON.') from exc
+
+    def _serve_static(self, url_path: str) -> None:
+        frontend_dir = _REACT_DIST_DIR if _REACT_DIST_DIR.is_dir() else _LEGACY_FRONTEND_DIR
+        rel = url_path.lstrip('/')
+        candidate = (frontend_dir / rel).resolve() if rel else frontend_dir / 'index.html'
+        try:
+            candidate.relative_to(frontend_dir.resolve())
+        except ValueError:
+            self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
+            return
+        if candidate.is_file():
+            mime = mimetypes.guess_type(candidate.name)[0] or 'application/octet-stream'
+            self._serve_file(candidate, mime)
+        else:
+            index = frontend_dir / 'index.html'
+            if index.exists():
+                self._serve_file(index, 'text/html; charset=utf-8')
+            else:
+                self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
     def _serve_file(self, path: Path, content_type: str) -> None:
         if not path.exists():
