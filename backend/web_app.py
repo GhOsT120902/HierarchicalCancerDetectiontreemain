@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import logging
 import shutil
 import tempfile
 import threading
@@ -13,9 +14,12 @@ from pathlib import Path
 import mimetypes
 from urllib.parse import parse_qs, unquote, urlparse
 
+_logger = logging.getLogger('hierarchical_inference')
+
 from .auth import change_password, create_reset_code, register_user, reset_password, verify_google_token, verify_login
 from .history import add_entry, bulk_import, clear_history, delete_entry, load_history
 from .inference_engine import HierarchicalCancerInference
+from .rate_limiter import check_forgot_password
 from .report_generator import build_pdf_bytes
 from .utils import (
     DEFAULT_BLANK_STD_THRESHOLD,
@@ -286,9 +290,18 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         except ValueError as exc:
             self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
-        email = str(body.get('email', ''))
+        email = str(body.get('email', '')).strip().lower()
+        client_ip = self.client_address[0]
+
+        allowed, limit_error = check_forgot_password(email, client_ip)
+        if not allowed:
+            self._send_json({'ok': False, 'error': limit_error}, status=HTTPStatus.TOO_MANY_REQUESTS)
+            return
+
         ok, _code, error = create_reset_code(email)
-        self._send_json({'ok': ok, 'error': error})
+        if not ok:
+            _logger.warning('forgot-password: reset code not sent for %s: %s', email, error)
+        self._send_json({'ok': True, 'error': ''})
 
     def _handle_auth_change_password(self) -> None:
         try:
