@@ -514,6 +514,11 @@ def main() -> None:
                         help="Resume training from the best-validation checkpoint in --output-dir. "
                              "Note: restores the epoch/optimizer/scheduler state saved at the best "
                              "val-acc point, not necessarily the very last completed epoch.")
+    parser.add_argument("--reset-best-acc", action="store_true",
+                        help="When used with --resume, reset the best-val-acc threshold to 0 so the "
+                             "first epoch that completes will save a new checkpoint. Useful when "
+                             "retraining on a larger or different dataset where the old threshold "
+                             "may never be reached.")
     args = parser.parse_args()
 
     # ── Validation ────────────────────────────────────────────────────────────
@@ -674,7 +679,11 @@ def main() -> None:
                 scheduler.load_state_dict(ckpt["scheduler_state_dict"])
             best_val_acc = ckpt.get("best_val_acc", -1.0)
             start_epoch  = saved_epoch
-            print(f"  Resumed at epoch {start_epoch}, best val acc so far: {best_val_acc:.2%}")
+            if args.reset_best_acc:
+                best_val_acc = -1.0
+                print(f"  Resumed at epoch {start_epoch}, best val acc reset to 0% (--reset-best-acc)")
+            else:
+                print(f"  Resumed at epoch {start_epoch}, best val acc so far: {best_val_acc:.2%}")
             print()
         else:
             print(f"  WARNING: --resume given but no checkpoint found at {best_ckpt_path}. "

@@ -369,6 +369,7 @@ Run `python scripts/train.py --help` at any time to see this reference:
 | `--drive-backup-dir` | `None` | Google Drive folder to copy the best checkpoint into during training (Colab only) |
 | `--backup-every` | `5` | Copy checkpoint to Drive every N epochs (requires `--drive-backup-dir`) |
 | `--resume` | off | Resume from the best saved checkpoint — restores model, optimizer, scheduler, and epoch count |
+| `--reset-best-acc` | off | Use with `--resume` to reset the saved accuracy threshold to 0%, so checkpoints are saved normally after retraining on a new or larger dataset |
 
 ---
 
