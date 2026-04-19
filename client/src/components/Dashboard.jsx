@@ -190,7 +190,6 @@ export default function Dashboard({ onLogout, theme, toggleTheme, onRegisterTabC
   };
 
   const handlePredict = useCallback(async (payload) => {
-    if (isDemoMode) return;
     const isAutoRetry = payload._autoRetry === true;
     if (!isAutoRetry) {
       autoRetryDoneRef.current = false;
