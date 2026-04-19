@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown, ChevronUp, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 function compressThumbnail(dataUrl, maxW, maxH) {
   return new Promise((resolve) => {
@@ -32,6 +32,22 @@ async function saveHistoryEntry(result, filename, imageDataUrl, reportId) {
       body: JSON.stringify({ entry }),
     });
   } catch {}
+}
+
+function isPipelineBlockedEarly(result) {
+  if (!result) return false;
+  const status = result.status;
+  if (status !== 'REJECTED' && status !== 'UNCERTAIN') return false;
+
+  const step0 = result.step0 || result.modality;
+  if (step0?.status === 'REJECTED' || step0?.status === 'UNCERTAIN') return true;
+
+  const level1 = result.level1 || result.tissue || result.organ_prediction;
+  if (!level1) return true;
+  if (level1.status === 'REJECTED' || level1.status === 'LOW_CONFIDENCE') return true;
+  if (level1.proceed_to_level2 === false) return true;
+
+  return false;
 }
 
 function TestDataBrowser({ onSelect }) {
@@ -87,7 +103,6 @@ function TestDataBrowser({ onSelect }) {
 
   return (
     <div>
-      {/* Organ tabs */}
       <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3 border-b border-[var(--border-color)]">
         {organList.map(organ => (
           <button
@@ -104,7 +119,6 @@ function TestDataBrowser({ onSelect }) {
         ))}
       </div>
 
-      {/* Subtype groups */}
       <div className="max-h-72 overflow-y-auto px-4 py-3 space-y-4">
         {Object.entries(subtypes).map(([subtype, images]) => (
           <div key={subtype}>
@@ -155,8 +169,13 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   const [organOverride, setOrganOverride] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [overrideAutoEnabled, setOverrideAutoEnabled] = useState(false);
+  const [overrideHighlighted, setOverrideHighlighted] = useState(false);
+
   const fileInputRef = useRef(null);
   const savedResultRef = useRef(null);
+  const lastRunOverrideRef = useRef(false);
+  const autoRetryDoneRef = useRef(false);
 
   useEffect(() => {
     if (result && result !== savedResultRef.current && file && imageData) {
@@ -164,6 +183,31 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
       saveHistoryEntry(result, file.name, imageData, reportId);
     }
   }, [result, file, imageData, reportId]);
+
+  useEffect(() => {
+    if (!result || !file || !imageData) return;
+    if (autoRetryDoneRef.current) return;
+    if (lastRunOverrideRef.current) return;
+
+    if (isPipelineBlockedEarly(result)) {
+      autoRetryDoneRef.current = true;
+      setOverrideAutoEnabled(true);
+      setAllowOverride(true);
+      setOverrideHighlighted(true);
+
+      setTimeout(() => {
+        onPredict({
+          filename: file.name,
+          image_data: imageData,
+          manual_override: true,
+          organ_override: null,
+        });
+        lastRunOverrideRef.current = true;
+      }, 600);
+
+      setTimeout(() => setOverrideHighlighted(false), 3000);
+    }
+  }, [result, file, imageData, onPredict]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -175,6 +219,9 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
       const reader = new FileReader();
       reader.onload = () => setImageData(reader.result);
       reader.readAsDataURL(selected);
+      setOverrideAutoEnabled(false);
+      autoRetryDoneRef.current = false;
+      lastRunOverrideRef.current = false;
     }
   };
 
@@ -191,6 +238,10 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
     setFile(null);
     setPreview('');
     setImageData('');
+    setOverrideAutoEnabled(false);
+    setAllowOverride(false);
+    autoRetryDoneRef.current = false;
+    lastRunOverrideRef.current = false;
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -199,16 +250,27 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
     setPreview(previewUrl);
     setImageData(dataUrl);
     setShowBrowser(false);
+    setOverrideAutoEnabled(false);
+    autoRetryDoneRef.current = false;
+    lastRunOverrideRef.current = false;
   };
 
   const handleSubmit = () => {
     if (!file || !imageData) return;
+    setOverrideAutoEnabled(false);
+    autoRetryDoneRef.current = false;
+    lastRunOverrideRef.current = allowOverride;
     onPredict({
       filename: file.name,
       image_data: imageData,
       manual_override: allowOverride,
-      organ_override: allowOverride ? organOverride : null
+      organ_override: allowOverride ? organOverride : null,
     });
+  };
+
+  const handleManualOverrideChange = (checked) => {
+    setAllowOverride(checked);
+    if (!checked) setOverrideAutoEnabled(false);
   };
 
   const handleExport = async () => {
@@ -242,7 +304,6 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Upload card */}
       <div className="card flex flex-col">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
@@ -294,15 +355,43 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
         </div>
 
         <div className="mt-6 space-y-4">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={allowOverride}
-              onChange={e => setAllowOverride(e.target.checked)}
-              className="w-4 h-4 rounded border-[var(--border-color)] text-cyan-500 focus:ring-cyan-500 bg-[var(--bg-main)]"
-            />
-            <span className="text-sm text-[var(--text-main)]">Allow override when Step 0 or Level 1 is uncertain</span>
-          </label>
+
+          {/* Auto-override notice */}
+          {overrideAutoEnabled && (
+            <div className="flex gap-3 p-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10">
+              <RefreshCw size={15} className="text-yellow-400 shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed">
+                <span className="font-semibold text-yellow-400">Override automatically enabled —</span>
+                <span className="text-[var(--text-muted)]"> The pipeline could not complete Step 0 / Level 1 without override. The image was re-run with override forcefully enabled to attempt a full analysis.</span>
+              </div>
+            </div>
+          )}
+
+          {/* Override checkbox — highlighted when auto-enabled */}
+          <div
+            className={`rounded-lg transition-all duration-500 ${
+              overrideHighlighted
+                ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-[var(--bg-card)] bg-yellow-500/10 p-3'
+                : 'p-0'
+            }`}
+          >
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowOverride}
+                onChange={e => handleManualOverrideChange(e.target.checked)}
+                className="w-4 h-4 rounded border-[var(--border-color)] text-cyan-500 focus:ring-cyan-500 bg-[var(--bg-main)]"
+              />
+              <span className={`text-sm transition-colors ${overrideHighlighted ? 'text-yellow-300 font-semibold' : 'text-[var(--text-main)]'}`}>
+                Allow override when Step 0 or Level 1 is uncertain
+                {overrideAutoEnabled && (
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    Auto
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
 
           {allowOverride && (
             <div className="space-y-1">
@@ -332,7 +421,7 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
               {isProcessing ? (
                 <span className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                  Running...
+                  {overrideAutoEnabled ? 'Re-running with override…' : 'Running...'}
                 </span>
               ) : 'Run Intelligent Pipeline'}
             </button>
