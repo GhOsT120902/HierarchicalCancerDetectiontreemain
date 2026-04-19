@@ -228,7 +228,7 @@ def assess_normality(
                 'allow_subtype_analysis': False,
             }
 
-    uncertain = (top1_confidence < 0.5 and gap < 0.15) or entropy > entropy_threshold
+    uncertain = top1_confidence < 0.5 and (gap < 0.15 or entropy > entropy_threshold)
     if uncertain:
         status = 'UNCERTAIN'
         return {
