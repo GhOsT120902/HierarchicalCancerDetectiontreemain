@@ -18,6 +18,7 @@ _logger = logging.getLogger('hierarchical_inference')
 
 from .auth import change_password, create_reset_code, register_user, reset_password, verify_google_token, verify_login
 from .history import add_entry, bulk_import, clear_history, delete_entry, load_history
+from .saved_reports import delete_report, get_report_path, list_reports, save_report
 from .inference_engine import HierarchicalCancerInference
 from .rate_limiter import check_forgot_password
 from .report_generator import build_pdf_bytes
@@ -135,6 +136,12 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == '/api/test-image':
             self._handle_test_image(parsed.query)
             return
+        if parsed.path == '/api/reports':
+            self._handle_reports_list()
+            return
+        if parsed.path == '/api/reports/download':
+            self._handle_reports_download(parsed.query)
+            return
         if parsed.path == '/api/auth/google-client-id':
             self._handle_google_client_id()
             return
@@ -189,6 +196,13 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
+    def do_DELETE(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == '/api/reports':
+            self._handle_reports_delete(parsed.query)
+            return
+        self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
+
     def _handle_predict(self) -> None:
         try:
             payload = self._read_json_body()
@@ -219,7 +233,42 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             manual_override=manual_override,
             organ_override=organ_override,
         )
-        self._send_json({'ok': True, 'result': prediction})
+
+        report_id: str | None = None
+        email = self._get_user_email()
+        if email:
+            import time, random, string
+            rand_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            report_id = f"{int(time.time() * 1000)}_{rand_suffix}"
+            final = prediction.get('final_decision', '')
+            organ = prediction.get('organ_prediction', {}).get('tissue', '') or ''
+            warnings = prediction.get('warnings', [])
+            fd_upper = final.upper()
+            if 'REJECTED' in fd_upper or 'INVALID' in fd_upper:
+                status = 'rejected'
+            elif manual_override or any('override' in str(w).lower() for w in warnings):
+                status = 'partial'
+            elif 'UNCERTAIN' in fd_upper or any('uncertain' in str(w).lower() for w in warnings):
+                status = 'uncertain'
+            else:
+                status = 'complete'
+            try:
+                pdf = build_pdf_bytes(result=prediction, image_name=str(filename), image_bytes=image_bytes)
+                save_report(
+                    email=email,
+                    report_id=report_id,
+                    filename=str(filename),
+                    pdf_bytes=pdf,
+                    status=status,
+                    timestamp=int(time.time() * 1000),
+                    final_decision=final,
+                    organ=str(organ),
+                )
+            except Exception as exc:
+                _logger.warning('Auto-report generation failed for %s: %s', filename, exc)
+                report_id = None
+
+        self._send_json({'ok': True, 'result': prediction, 'report_id': report_id})
 
     def _handle_report(self) -> None:
         try:
@@ -481,6 +530,48 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         thread = threading.Thread(target=_run_evaluation, args=(self.server,), daemon=True)
         thread.start()
         self._send_json({'ok': True, 'status': 'running'})
+
+    def _handle_reports_list(self) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        self._send_json({'ok': True, 'reports': list_reports(email)})
+
+    def _handle_reports_download(self, query_string: str) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        params = parse_qs(query_string or '')
+        report_id = (params.get('id', [''])[0] or '').strip()
+        if not report_id:
+            self._send_json({'ok': False, 'error': 'id is required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        path = get_report_path(email, report_id)
+        if path is None:
+            self._send_json({'ok': False, 'error': 'Report not found.'}, status=HTTPStatus.NOT_FOUND)
+            return
+        data = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', 'application/pdf')
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Content-Disposition', f'attachment; filename="report_{report_id}.pdf"')
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_reports_delete(self, query_string: str) -> None:
+        email = self._get_user_email()
+        if not email:
+            self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        params = parse_qs(query_string or '')
+        report_id = (params.get('id', [''])[0] or '').strip()
+        if not report_id:
+            self._send_json({'ok': False, 'error': 'id is required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        delete_report(email, report_id)
+        self._send_json({'ok': True})
 
     def _get_user_email(self) -> str | None:
         email = (self.headers.get('X-User-Email') or '').strip().lower()

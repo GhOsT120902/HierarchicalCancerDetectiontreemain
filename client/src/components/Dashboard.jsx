@@ -7,6 +7,7 @@ import UploadWorkflow from './UploadWorkflow';
 import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
 import HistoryPanel from './HistoryPanel';
+import ReportsPanel from './ReportsPanel';
 
 function SettingsPanel() {
   const [currentPw, setCurrentPw] = useState('');
@@ -250,7 +251,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
         );
 
       case 'Reports':
-        return <HistoryPanel />;
+        return <ReportsPanel />;
 
       case 'Model Accuracy':
         return <ModelAccuracy />;
