@@ -52,22 +52,43 @@ NORMAL_SUBTYPE_NAMES: frozenset[str] = frozenset(
     if name.endswith("_normal") or name.endswith("_healthy")
 )
 
+_ORGAN_FOLDER_LOWER: dict[str, int] = {k.lower(): v for k, v in ORGAN_FOLDER_TO_INDEX.items()}
+_SUBTYPE_NAME_LOWER: dict[str, int] = {k.lower(): v for k, v in SUBTYPE_NAME_TO_INDEX.items()}
+_SUBTYPE_INDEX_TO_CODE: dict[int, str] = dict(SUBTYPE_CLASSES)
+
+
+def _normalize(name: str) -> str:
+    return name.lower().replace("-", "_").replace(" ", "_")
+
 
 def build_ground_truth(
     organ_folder: str, subtype_folder: str
 ) -> dict[str, object] | None:
     organ_index = ORGAN_FOLDER_TO_INDEX.get(organ_folder)
     if organ_index is None:
+        organ_index = _ORGAN_FOLDER_LOWER.get(organ_folder.lower())
+    if organ_index is None:
         return None
+
     subtype_index = SUBTYPE_NAME_TO_INDEX.get(subtype_folder)
     if subtype_index is None:
+        subtype_index = _SUBTYPE_NAME_LOWER.get(subtype_folder.lower())
+    if subtype_index is None:
+        norm = _normalize(subtype_folder)
+        subtype_index = next(
+            (idx for key, idx in _SUBTYPE_NAME_LOWER.items() if _normalize(key) == norm),
+            None,
+        )
+    if subtype_index is None:
         return None
-    is_normal = subtype_folder in NORMAL_SUBTYPE_NAMES
+
+    subtype_code = _SUBTYPE_INDEX_TO_CODE[subtype_index]
+    is_normal = subtype_code in NORMAL_SUBTYPE_NAMES
     return {
         "organ_index": organ_index,
         "organ_label": ORGAN_CLASSES[organ_index],
         "subtype_index": subtype_index,
-        "subtype_label": subtype_folder,
+        "subtype_label": subtype_code,
         "subtype_display": SUBTYPE_DISPLAY_NAMES[subtype_index],
         "expected_normality": "NORMAL" if is_normal else "ABNORMAL",
     }
@@ -79,12 +100,13 @@ def collect_image_paths(
     entries: list[tuple[Path, dict[str, object]]] = []
     image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
     skipped_folders: list[str] = []
+    organ_filter_lower = organ_filter.lower() if organ_filter else None
 
     for organ_dir in sorted(test_data_dir.iterdir()):
         if not organ_dir.is_dir():
             continue
         organ_folder = organ_dir.name
-        if organ_filter and organ_folder != organ_filter:
+        if organ_filter_lower and organ_folder.lower() != organ_filter_lower:
             continue
         for subtype_dir in sorted(organ_dir.iterdir()):
             if not subtype_dir.is_dir():
@@ -100,7 +122,7 @@ def collect_image_paths(
 
     if skipped_folders and logger is not None:
         for folder in skipped_folders:
-            logger.warning("Skipped unknown folder (no label mapping): %s", folder)
+            logger.warning("Skipped unrecognised folder (no label mapping): %s", folder)
 
     return entries
 

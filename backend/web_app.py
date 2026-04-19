@@ -622,9 +622,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
 
         extracted_root = Path(temp_dir)
 
-        _ORGAN_NAMES = {
-            'ALL', 'Brain Cancer', 'Breast Cancer', 'Cervical Cancer',
-            'Kidney Cancer', 'Lung and Colon Cancer', 'Lymphoma', 'Oral Cancer',
+        _ORGAN_NAMES_LOWER = {
+            'all', 'brain cancer', 'breast cancer', 'cervical cancer',
+            'kidney cancer', 'lung and colon cancer', 'lymphoma', 'oral cancer',
         }
 
         def _visible_subdirs(p: Path) -> list[Path]:
@@ -633,17 +633,20 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
                 if d.is_dir() and not d.name.startswith('.') and d.name != '__MACOSX'
             ]
 
+        def _is_organ_dir(d: Path) -> bool:
+            return d.name.lower() in _ORGAN_NAMES_LOWER
+
         def _find_data_root(base: Path, max_depth: int = 4) -> Path:
             if max_depth == 0:
                 return base
             children = _visible_subdirs(base)
-            if any(c.name in _ORGAN_NAMES for c in children):
+            if any(_is_organ_dir(c) for c in children):
                 return base
             if len(children) == 1:
                 return _find_data_root(children[0], max_depth - 1)
             for child in children:
                 grandchildren = _visible_subdirs(child)
-                if any(gc.name in _ORGAN_NAMES for gc in grandchildren):
+                if any(_is_organ_dir(gc) for gc in grandchildren):
                     return child
             return base
 
