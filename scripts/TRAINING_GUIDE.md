@@ -24,12 +24,14 @@ Complete step-by-step instructions for retraining the organ and subtype classifi
 
 The script `scripts/train.py` trains a **ResNet50** image classifier for one of two stages in the MedAI pipeline:
 
-| Target | Classes | Saved checkpoint |
-|---|---|---|
-| `organ` | 8 organ types | `models/resnet50_organ_classifier.pth` |
-| `subtype` | 28 cancer subtypes | `models/resnet50_subtype_classifier_best.pth` |
+| Target | Classes | Best checkpoint | Last-epoch checkpoint |
+|---|---|---|---|
+| `organ` | 8 organ types | `models/resnet50_organ_classifier.pth` | `models/resnet50_organ_classifier_last.pth` |
+| `subtype` | 28 cancer subtypes | `models/resnet50_subtype_classifier_best.pth` | `models/resnet50_subtype_classifier_last.pth` |
 
 You run the script once per target. Once saved, the checkpoint is loaded automatically by the web app — no code changes needed.
+
+> **Two checkpoints are kept per target.** The *best* checkpoint is updated whenever validation accuracy improves. The *last* checkpoint is overwritten at the end of every epoch regardless of accuracy, so `--resume` can always pick up from the true last completed epoch even if the session dropped before a new best was reached.
 
 ---
 
@@ -366,9 +368,9 @@ Run `python scripts/train.py --help` at any time to see this reference:
 | `--device` | auto | `cuda`, `cpu`, or `mps` (auto-detected if omitted) |
 | `--no-amp` | off | Disable Automatic Mixed Precision (not recommended on GPU) |
 | `--no-weighted-sampler` | off | Disable balanced class sampling |
-| `--drive-backup-dir` | `None` | Google Drive folder to copy the best checkpoint into during training (Colab only) |
-| `--backup-every` | `5` | Copy checkpoint to Drive every N epochs (requires `--drive-backup-dir`) |
-| `--resume` | off | Resume from the best saved checkpoint — restores model, optimizer, scheduler, and epoch count |
+| `--drive-backup-dir` | `None` | Google Drive folder to copy checkpoints into during training (Colab only) |
+| `--backup-every` | `5` | Copy the *last-epoch* checkpoint to Drive every N epochs. The *best* checkpoint is always copied to Drive immediately when a new best val acc is achieved. |
+| `--resume` | off | Resume training. Loads the *last-epoch* checkpoint first (exact epoch); falls back to the *best* checkpoint if no last-epoch file exists. Restores model, optimizer, scheduler, and epoch count. |
 | `--reset-best-acc` | off | Use with `--resume` to reset the saved accuracy threshold to 0%, so checkpoints are saved normally after retraining on a new or larger dataset |
 
 ---
@@ -514,14 +516,21 @@ If the loss is still NaN, check for corrupt images — though the script pre-val
 
 ### Colab session disconnected mid-training
 
-The checkpoint marked `*` in the output is saved after every improvement. If you used `--drive-backup-dir`, the best checkpoint is also copied to Google Drive automatically, so it survives a VM wipe.
+Every epoch the script writes two checkpoint files:
 
-To resume after reconnecting, simply re-run the same training command with `--resume` included (it is already part of the recommended commands in Steps 6 and 7). The script will restore the model weights, optimizer, scheduler state, and epoch count, then continue from where it left off.
+- **Best checkpoint** (`*_classifier.pth` / `*_best.pth`) — updated only when validation accuracy improves. If `--drive-backup-dir` is set this is copied to Drive **immediately** after each improvement, not just every N epochs.
+- **Last-epoch checkpoint** (`*_last.pth`) — overwritten at the end of **every** epoch. If `--drive-backup-dir` is set this is also copied to Drive every `--backup-every` epochs (default: 5).
 
-If the local `models/` checkpoint was lost but your Drive backup is intact, copy it back first:
+`--resume` loads the last-epoch file first (exact epoch), then falls back to the best checkpoint. This means it will never silently rewind to epoch 1 just because the session timed out before a new best was reached.
+
+If the local `models/` files were lost but your Drive backup is intact, copy them back before running with `--resume`:
 
 ```python
 import shutil
+# Restore last-epoch checkpoint (preferred — gives exact resume epoch)
+shutil.copy("/content/drive/MyDrive/medai-models/resnet50_organ_classifier_last.pth",
+            "models/resnet50_organ_classifier_last.pth")
+# Also restore best checkpoint (fallback)
 shutil.copy("/content/drive/MyDrive/medai-models/resnet50_organ_classifier.pth",
             "models/resnet50_organ_classifier.pth")
 ```
@@ -536,4 +545,4 @@ Check that `--device cuda` is set and that AMP is active (the banner line should
 
 ---
 
-*Last updated: April 2026 — added `--resume`, `--drive-backup-dir`, and `--backup-every` flags*
+*Last updated: April 2026 — added `--resume`, `--drive-backup-dir`, `--backup-every`, `--reset-best-acc` flags; last-epoch checkpoint (`*_last.pth`) now saved every epoch; best checkpoint backed up to Drive immediately on improvement*

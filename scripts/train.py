@@ -553,14 +553,16 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.target == "organ":
-        num_classes   = len(ORGAN_CLASSES)
-        label_to_idx  = ORGAN_FOLDER_TO_INDEX
+        num_classes     = len(ORGAN_CLASSES)
+        label_to_idx    = ORGAN_FOLDER_TO_INDEX
         best_ckpt_name  = "resnet50_organ_classifier.pth"
+        last_ckpt_name  = "resnet50_organ_classifier_last.pth"
         final_ckpt_name = "resnet50_organ_classifier_final.pth"
     else:
-        num_classes   = len(SUBTYPE_CLASSES)
-        label_to_idx  = SUBTYPE_FOLDER_TO_INDEX
+        num_classes     = len(SUBTYPE_CLASSES)
+        label_to_idx    = SUBTYPE_FOLDER_TO_INDEX
         best_ckpt_name  = "resnet50_subtype_classifier_best.pth"
+        last_ckpt_name  = "resnet50_subtype_classifier_last.pth"
         final_ckpt_name = "resnet50_subtype_classifier_final.pth"
 
     # ── Banner ────────────────────────────────────────────────────────────────
@@ -581,7 +583,7 @@ def main() -> None:
     if args.drive_backup_dir:
         print(f"  Drive backup dir : {args.drive_backup_dir}  (every {args.backup_every} epochs)")
     if args.resume:
-        print(f"  Resume           : yes (will load {best_ckpt_name} if found)")
+        print(f"  Resume           : yes (prefers {last_ckpt_name}, falls back to {best_ckpt_name})")
     print()
 
     # ── Dataset ───────────────────────────────────────────────────────────────
@@ -654,16 +656,19 @@ def main() -> None:
     )
 
     best_val_acc  = -1.0
-    start_epoch   = 0
+    start_epoch     = 0
     best_ckpt_path  = args.output_dir / best_ckpt_name
+    last_ckpt_path  = args.output_dir / last_ckpt_name
     final_ckpt_path = args.output_dir / final_ckpt_name
     new_best_since_last_backup = False
 
     # ── Resume ────────────────────────────────────────────────────────────────
     if args.resume:
-        if best_ckpt_path.exists():
-            print(f"  Resuming from checkpoint: {best_ckpt_path}")
-            ckpt = torch.load(best_ckpt_path, map_location=device)
+        # Prefer the last-epoch checkpoint (exact epoch) over best-val-acc checkpoint
+        resume_path = last_ckpt_path if last_ckpt_path.exists() else best_ckpt_path
+        if resume_path.exists():
+            print(f"  Resuming from checkpoint: {resume_path}")
+            ckpt = torch.load(resume_path, map_location=device)
             model.load_state_dict(ckpt["model_state_dict"])
             saved_epoch = ckpt.get("epoch", 0)
             if saved_epoch > args.freeze_epochs:
@@ -686,8 +691,7 @@ def main() -> None:
                 print(f"  Resumed at epoch {start_epoch}, best val acc so far: {best_val_acc:.2%}")
             print()
         else:
-            print(f"  WARNING: --resume given but no checkpoint found at {best_ckpt_path}. "
-                  f"Starting from scratch.")
+            print(f"  WARNING: --resume given but no checkpoint found. Starting from scratch.")
             print()
 
     header = (
@@ -734,14 +738,24 @@ def main() -> None:
                 optimizer=optimizer, scheduler=scheduler,
                 epoch=epoch, best_val_acc=best_val_acc,
             )
-            new_best_since_last_backup = True
+            # Back up best checkpoint to Drive immediately — don't wait for epoch N
+            if args.drive_backup_dir:
+                args.drive_backup_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(best_ckpt_path, args.drive_backup_dir / best_ckpt_name)
+                print(f"  Best backup → {args.drive_backup_dir / best_ckpt_name}")
 
-        if args.drive_backup_dir and epoch % args.backup_every == 0 and new_best_since_last_backup:
+        # Always save the last-completed-epoch checkpoint so --resume picks up
+        # the true last epoch, not just the best-val-acc epoch
+        save_checkpoint(
+            model, args.target, num_classes, label_to_idx, last_ckpt_path,
+            optimizer=optimizer, scheduler=scheduler,
+            epoch=epoch, best_val_acc=best_val_acc,
+        )
+        # Back up last checkpoint to Drive every --backup-every epochs
+        if args.drive_backup_dir and epoch % args.backup_every == 0:
             args.drive_backup_dir.mkdir(parents=True, exist_ok=True)
-            backup_dest = args.drive_backup_dir / best_ckpt_name
-            shutil.copy2(best_ckpt_path, backup_dest)
-            print(f"  Backup saved → {backup_dest}")
-            new_best_since_last_backup = False
+            shutil.copy2(last_ckpt_path, args.drive_backup_dir / last_ckpt_name)
+            print(f"  Last backup  → {args.drive_backup_dir / last_ckpt_name}")
 
     print()
     print(f"Training complete. Best val accuracy: {best_val_acc:.2%}")
