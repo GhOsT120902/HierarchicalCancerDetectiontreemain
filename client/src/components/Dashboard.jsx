@@ -6,7 +6,6 @@ import HeroSection from './HeroSection';
 import UploadWorkflow from './UploadWorkflow';
 import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
-import HistoryPanel from './HistoryPanel';
 import ReportsPanel from './ReportsPanel';
 import AdminControls from './AdminControls';
 
@@ -262,9 +261,6 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
       case 'Model Accuracy':
         return isAdmin ? <ModelAccuracy /> : null;
-
-      case 'History':
-        return <HistoryPanel />;
 
       case 'Settings':
         return <SettingsPanel />;
