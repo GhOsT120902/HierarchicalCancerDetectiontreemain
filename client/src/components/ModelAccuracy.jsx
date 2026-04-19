@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FlaskConical, Play, RotateCcw, Upload, FolderOpen,
-  Loader2, CheckCircle2, AlertTriangle, Filter, X, Download,
+  Loader2, CheckCircle2, AlertTriangle, Filter, X, Download, ChevronDown,
 } from 'lucide-react';
 
 const ORGAN_OPTIONS = [
@@ -325,16 +325,19 @@ export default function ModelAccuracy() {
           <div className="flex items-center gap-3 flex-wrap shrink-0">
             <div className="flex items-center gap-2">
               <Filter size={14} className="text-[var(--text-muted)]" />
-              <select
-                value={organFilter}
-                onChange={e => setOrganFilter(e.target.value)}
-                disabled={isRunning}
-                className="input-field text-sm py-1.5"
-              >
-                {ORGAN_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={organFilter}
+                  onChange={e => setOrganFilter(e.target.value)}
+                  disabled={isRunning}
+                  className="input-field text-sm py-1.5 appearance-none pr-8"
+                >
+                  {ORGAN_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
+              </div>
             </div>
 
             <button
