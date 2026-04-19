@@ -163,6 +163,9 @@ export default function ModelAccuracy() {
   const [folderFiles,  setFolderFiles]  = useState(null);
   const [folderName,   setFolderName]   = useState('');
   const [isUploading,  setIsUploading]  = useState(false);
+  const [evalProgress, setEvalProgress] = useState(0);
+  const [evalTotal,    setEvalTotal]    = useState(0);
+  const [evalElapsed,  setEvalElapsed]  = useState(0);
 
   const pollRef       = useRef(null);
   const logRef        = useRef(null);
@@ -176,12 +179,16 @@ export default function ModelAccuracy() {
   }, [log]);
 
   const applyState = useCallback((data) => {
-    const { status: s, metrics: m, error: e, log: l, organ_filter: of_ } = data;
+    const { status: s, metrics: m, error: e, log: l, organ_filter: of_,
+            progress: p, total: t, elapsed: el } = data;
     if (s)        setStatus(s);
     if (m)        { setMetrics(m); setTotalImages(m.total_images ?? null); }
     if (e)        setEvalError(e);
     if (l?.length) setLog(l);
     if (of_ !== undefined) setScopeLabel(of_ || 'All Organs');
+    if (p !== undefined)  setEvalProgress(p);
+    if (t !== undefined)  setEvalTotal(t);
+    if (el !== undefined) setEvalElapsed(el);
   }, []);
 
   const adminHeaders = () => ({
@@ -522,8 +529,43 @@ export default function ModelAccuracy() {
         <div className="card">
           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
             {isRunning && <Loader2 size={14} className="animate-spin text-cyan-500" />}
-            Running inference…
+            {isRunning ? 'Running inference…' : 'Evaluation log'}
           </h3>
+
+          {/* Progress bar — only shown while running and total is known */}
+          {isRunning && evalTotal > 0 && (() => {
+            const pct = Math.min(100, Math.round((evalProgress / evalTotal) * 100));
+            const remaining = (() => {
+              if (evalProgress <= 0 || evalElapsed <= 0) return null;
+              const rate = evalProgress / evalElapsed;          // images/sec
+              const left = (evalTotal - evalProgress) / rate;  // seconds left
+              if (left < 60) return `${Math.round(left)}s`;
+              const m = Math.floor(left / 60), s = Math.round(left % 60);
+              return `${m}m ${s}s`;
+            })();
+            return (
+              <div className="mb-3">
+                <div className="flex justify-between items-center mb-1.5 text-xs text-[var(--text-muted)]">
+                  <span className="font-mono">
+                    {evalProgress.toLocaleString()} / {evalTotal.toLocaleString()} images
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {remaining && (
+                      <span>⏱ ETA: <span className="text-cyan-400 font-semibold">{remaining}</span></span>
+                    )}
+                    <span className="font-semibold text-[var(--text-main)]">{pct}%</span>
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-main)' }}>
+                  <div
+                    className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
           <pre
             ref={logRef}
             className="text-xs font-mono leading-relaxed rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap"

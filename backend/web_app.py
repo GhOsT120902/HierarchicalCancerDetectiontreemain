@@ -116,10 +116,19 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
         else:
             log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
 
+        with server._eval_lock:
+            server._eval_total = len(entries)
+            server._eval_progress = 0
+            server._eval_start_time = _time.time()
+
+        def _progress_cb(done: int) -> None:
+            with server._eval_lock:
+                server._eval_progress = done
+
         original_gradcam = server.engine._generate_gradcam
         server.engine._generate_gradcam = lambda *a, **kw: None
         try:
-            raw_results = evaluate(server.engine, entries, logger)
+            raw_results = evaluate(server.engine, entries, logger, progress_callback=_progress_cb)
         finally:
             server.engine._generate_gradcam = original_gradcam
 
@@ -224,6 +233,9 @@ class InferenceHTTPServer(ThreadingHTTPServer):
         self._eval_organ_filter: str | None = None
         self._eval_custom_dir: Path | None = None
         self._eval_temp_dir: str | None = None
+        self._eval_progress: int = 0
+        self._eval_total: int = 0
+        self._eval_start_time: float = 0.0
 
 
 class InferenceRequestHandler(BaseHTTPRequestHandler):
@@ -571,6 +583,7 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
             return
         with self.server._eval_lock:
+            elapsed = _time.time() - self.server._eval_start_time if self.server._eval_start_time else 0.0
             self._send_json({
                 'ok': True,
                 'status': self.server._eval_status,
@@ -578,6 +591,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
                 'error': self.server._eval_error,
                 'log': self.server._eval_log[-80:],
                 'organ_filter': self.server._eval_organ_filter,
+                'progress': self.server._eval_progress,
+                'total': self.server._eval_total,
+                'elapsed': round(elapsed, 1),
             })
 
     def _handle_evaluate_post(self) -> None:

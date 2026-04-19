@@ -227,6 +227,7 @@ def evaluate(
     engine: HierarchicalCancerInference,
     entries: list[tuple[Path, dict[str, object]]],
     logger,
+    progress_callback=None,
 ) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     total = len(entries)
@@ -288,6 +289,8 @@ def evaluate(
                 "subtype_correct": subtype_correct,
             }
         )
+        if progress_callback is not None:
+            progress_callback(i)
 
     return results
 
