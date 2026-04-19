@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Lock, KeyRound, Check } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -124,6 +124,19 @@ function SettingsPanel() {
 }
 
 
+function isPipelineBlockedEarly(result) {
+  if (!result) return false;
+  const status = result.status;
+  if (status !== 'REJECTED' && status !== 'UNCERTAIN') return false;
+  const step0 = result.step0 || result.modality;
+  if (step0?.status === 'REJECTED' || step0?.status === 'UNCERTAIN') return true;
+  const level1 = result.level1 || result.tissue || result.organ_prediction;
+  if (!level1) return true;
+  if (level1.status === 'REJECTED' || level1.status === 'LOW_CONFIDENCE') return true;
+  if (level1.proceed_to_level2 === false) return true;
+  return false;
+}
+
 export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [modelStatus, setModelStatus] = useState(null);
   const [result, setResult]           = useState(null);
@@ -133,6 +146,9 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [activeTab, setActiveTab]     = useState('Dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exportData, setExportData]   = useState(null);
+  const [overrideAutoEnabled, setOverrideAutoEnabled] = useState(false);
+  const [overrideHighlighted, setOverrideHighlighted] = useState(false);
+  const autoRetryDoneRef = useRef(false);
   const userEmail = localStorage.getItem('medai_user_email') || 'doctor@hospital.org';
   const isAdmin = localStorage.getItem('medai_is_admin') === 'true';
 
@@ -160,7 +176,13 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
     }
   };
 
-  const handlePredict = async (payload) => {
+  const handlePredict = useCallback(async (payload) => {
+    const isAutoRetry = payload._autoRetry === true;
+    if (!isAutoRetry) {
+      autoRetryDoneRef.current = false;
+      setOverrideAutoEnabled(false);
+      setOverrideHighlighted(false);
+    }
     setIsProcessing(true);
     setError(null);
     setResult(null);
@@ -173,10 +195,26 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       });
       const data = await res.json();
       if (data.ok) {
-        setResult(data.result);
+        const prediction = data.result;
+        if (!isAutoRetry && !payload.manual_override && isPipelineBlockedEarly(prediction) && !autoRetryDoneRef.current) {
+          autoRetryDoneRef.current = true;
+          setOverrideAutoEnabled(true);
+          setOverrideHighlighted(true);
+          setActiveTab('Upload Scan');
+          setResult(null);
+          setTimeout(() => setOverrideHighlighted(false), 3500);
+          await handlePredict({
+            ...payload,
+            manual_override: true,
+            organ_override: null,
+            _autoRetry: true,
+          });
+          return;
+        }
+        setResult(prediction);
         setReportId(data.report_id || null);
         setExportData({ filename: payload.filename, imageData: payload.image_data });
-        if (data.result.model_status) setModelStatus(data.result.model_status);
+        if (prediction.model_status) setModelStatus(prediction.model_status);
         setActiveTab('Results');
       } else {
         setError(data.error || 'The analysis failed. Please try again.');
@@ -186,7 +224,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, []);
 
   const handleExport = useCallback(async () => {
     if (!result || !exportData) return;
@@ -234,6 +272,8 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
                 isProcessing={isProcessing}
                 result={result}
                 reportId={reportId}
+                overrideAutoEnabled={overrideAutoEnabled}
+                overrideHighlighted={overrideHighlighted}
               />
               <DiagnosticResults result={result} />
             </div>

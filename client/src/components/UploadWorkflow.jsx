@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown, ChevronUp, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
 
 function compressThumbnail(dataUrl, maxW, maxH) {
   return new Promise((resolve) => {
@@ -32,22 +32,6 @@ async function saveHistoryEntry(result, filename, imageDataUrl, reportId) {
       body: JSON.stringify({ entry }),
     });
   } catch {}
-}
-
-function isPipelineBlockedEarly(result) {
-  if (!result) return false;
-  const status = result.status;
-  if (status !== 'REJECTED' && status !== 'UNCERTAIN') return false;
-
-  const step0 = result.step0 || result.modality;
-  if (step0?.status === 'REJECTED' || step0?.status === 'UNCERTAIN') return true;
-
-  const level1 = result.level1 || result.tissue || result.organ_prediction;
-  if (!level1) return true;
-  if (level1.status === 'REJECTED' || level1.status === 'LOW_CONFIDENCE') return true;
-  if (level1.proceed_to_level2 === false) return true;
-
-  return false;
 }
 
 function TestDataBrowser({ onSelect }) {
@@ -161,7 +145,15 @@ function TestDataBrowser({ onSelect }) {
   );
 }
 
-export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, result, reportId }) {
+export default function UploadWorkflow({
+  modelStatus,
+  onPredict,
+  isProcessing,
+  result,
+  reportId,
+  overrideAutoEnabled = false,
+  overrideHighlighted = false,
+}) {
   const [file, setFile] = useState(null);
   const [imageData, setImageData] = useState('');
   const [preview, setPreview] = useState('');
@@ -169,13 +161,9 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   const [organOverride, setOrganOverride] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [overrideAutoEnabled, setOverrideAutoEnabled] = useState(false);
-  const [overrideHighlighted, setOverrideHighlighted] = useState(false);
 
   const fileInputRef = useRef(null);
   const savedResultRef = useRef(null);
-  const lastRunOverrideRef = useRef(false);
-  const autoRetryDoneRef = useRef(false);
 
   useEffect(() => {
     if (result && result !== savedResultRef.current && file && imageData) {
@@ -185,29 +173,10 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   }, [result, file, imageData, reportId]);
 
   useEffect(() => {
-    if (!result || !file || !imageData) return;
-    if (autoRetryDoneRef.current) return;
-    if (lastRunOverrideRef.current) return;
-
-    if (isPipelineBlockedEarly(result)) {
-      autoRetryDoneRef.current = true;
-      setOverrideAutoEnabled(true);
+    if (overrideAutoEnabled) {
       setAllowOverride(true);
-      setOverrideHighlighted(true);
-
-      setTimeout(() => {
-        onPredict({
-          filename: file.name,
-          image_data: imageData,
-          manual_override: true,
-          organ_override: null,
-        });
-        lastRunOverrideRef.current = true;
-      }, 600);
-
-      setTimeout(() => setOverrideHighlighted(false), 3000);
     }
-  }, [result, file, imageData, onPredict]);
+  }, [overrideAutoEnabled]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];
@@ -219,9 +188,6 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
       const reader = new FileReader();
       reader.onload = () => setImageData(reader.result);
       reader.readAsDataURL(selected);
-      setOverrideAutoEnabled(false);
-      autoRetryDoneRef.current = false;
-      lastRunOverrideRef.current = false;
     }
   };
 
@@ -238,10 +204,7 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
     setFile(null);
     setPreview('');
     setImageData('');
-    setOverrideAutoEnabled(false);
     setAllowOverride(false);
-    autoRetryDoneRef.current = false;
-    lastRunOverrideRef.current = false;
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -250,16 +213,10 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
     setPreview(previewUrl);
     setImageData(dataUrl);
     setShowBrowser(false);
-    setOverrideAutoEnabled(false);
-    autoRetryDoneRef.current = false;
-    lastRunOverrideRef.current = false;
   };
 
   const handleSubmit = () => {
     if (!file || !imageData) return;
-    setOverrideAutoEnabled(false);
-    autoRetryDoneRef.current = false;
-    lastRunOverrideRef.current = allowOverride;
     onPredict({
       filename: file.name,
       image_data: imageData,
@@ -270,7 +227,6 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
 
   const handleManualOverrideChange = (checked) => {
     setAllowOverride(checked);
-    if (!checked) setOverrideAutoEnabled(false);
   };
 
   const handleExport = async () => {
@@ -356,18 +312,18 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
 
         <div className="mt-6 space-y-4">
 
-          {/* Auto-override notice */}
+          {/* Auto-override notice banner */}
           {overrideAutoEnabled && (
             <div className="flex gap-3 p-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10">
               <RefreshCw size={15} className="text-yellow-400 shrink-0 mt-0.5" />
               <div className="text-xs leading-relaxed">
-                <span className="font-semibold text-yellow-400">Override automatically enabled —</span>
-                <span className="text-[var(--text-muted)]"> The pipeline could not complete Step 0 / Level 1 without override. The image was re-run with override forcefully enabled to attempt a full analysis.</span>
+                <span className="font-semibold text-yellow-400">Override automatically enabled — </span>
+                <span className="text-[var(--text-muted)]">The pipeline could not pass Step 0 / Level 1 without override. The image was automatically re-run with override forcefully enabled.</span>
               </div>
             </div>
           )}
 
-          {/* Override checkbox — highlighted when auto-enabled */}
+          {/* Override checkbox — highlighted when auto-forced */}
           <div
             className={`rounded-lg transition-all duration-500 ${
               overrideHighlighted
