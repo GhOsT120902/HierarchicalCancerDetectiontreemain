@@ -104,7 +104,14 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
                 server._eval_custom_dir = None
 
 
-_ADMIN_SESSION_TTL = 8 * 3600
+def _get_admin_session_ttl() -> int:
+    import os
+    try:
+        return max(60, int(os.environ.get('ADMIN_SESSION_TTL_SECONDS', '28800')))
+    except (ValueError, TypeError):
+        return 28800
+
+_ADMIN_SESSION_TTL = _get_admin_session_ttl()
 _admin_sessions: dict[str, float] = {}
 _admin_sessions_lock = threading.Lock()
 
