@@ -81,6 +81,19 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
 
         log(f'Loading test images ({scope_label})...')
         entries = collect_image_paths(test_data_dir, logger=logger, organ_filter=organ_filter or None)
+        if len(entries) == 0:
+            expected = (
+                'No images found. Your ZIP must follow this folder structure:\n'
+                '  OrganFolder/subtype_folder/image.jpg\n'
+                'Valid organ folders: ALL, Brain Cancer, Breast Cancer, Cervical Cancer, '
+                'Kidney Cancer, Lung and Colon Cancer, Lymphoma, Oral Cancer\n'
+                'Valid subtype folders (examples): brain_glioma, breast_malignant, lung_aca, kidney_tumor, etc.'
+            )
+            with server._eval_lock:
+                server._eval_status = 'error'
+                server._eval_error = expected
+                server._eval_log.append(expected)
+            return
         log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
 
         original_gradcam = server.engine._generate_gradcam
@@ -580,12 +593,33 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
 
         extracted_root = Path(temp_dir)
-        subdirs = [d for d in extracted_root.iterdir() if d.is_dir()]
-        if len(subdirs) == 1:
-            candidate = subdirs[0]
-            inner = [d for d in candidate.iterdir() if d.is_dir()]
-            if inner:
-                extracted_root = candidate
+
+        _ORGAN_NAMES = {
+            'ALL', 'Brain Cancer', 'Breast Cancer', 'Cervical Cancer',
+            'Kidney Cancer', 'Lung and Colon Cancer', 'Lymphoma', 'Oral Cancer',
+        }
+
+        def _visible_subdirs(p: Path) -> list[Path]:
+            return [
+                d for d in p.iterdir()
+                if d.is_dir() and not d.name.startswith('.') and d.name != '__MACOSX'
+            ]
+
+        def _find_data_root(base: Path, max_depth: int = 4) -> Path:
+            if max_depth == 0:
+                return base
+            children = _visible_subdirs(base)
+            if any(c.name in _ORGAN_NAMES for c in children):
+                return base
+            if len(children) == 1:
+                return _find_data_root(children[0], max_depth - 1)
+            for child in children:
+                grandchildren = _visible_subdirs(child)
+                if any(gc.name in _ORGAN_NAMES for gc in grandchildren):
+                    return child
+            return base
+
+        extracted_root = _find_data_root(extracted_root)
 
         organ_filter_raw = self.headers.get('X-Organ-Filter') or None
         organ_filter: str | None = organ_filter_raw.strip() if organ_filter_raw and organ_filter_raw.strip() else None
