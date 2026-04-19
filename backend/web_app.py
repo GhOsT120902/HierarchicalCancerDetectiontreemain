@@ -308,7 +308,7 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             rand_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             report_id = f"{int(time.time() * 1000)}_{rand_suffix}"
             final = prediction.get('final_decision', '')
-            organ = prediction.get('organ_prediction', {}).get('tissue', '') or ''
+            organ = (prediction.get('organ_prediction') or {}).get('tissue', '') or ''
             warnings = prediction.get('warnings', [])
             fd_upper = final.upper()
             if 'REJECTED' in fd_upper or 'INVALID' in fd_upper:
