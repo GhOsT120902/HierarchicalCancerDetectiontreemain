@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check, Shield } from 'lucide-react';
+import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check, Shield, Eye, EyeOff } from 'lucide-react';
 
 export default function AuthScreen({ onLogin }) {
   const [view, setView] = useState('login');
@@ -10,6 +10,8 @@ export default function AuthScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showDoctorPassword, setShowDoctorPassword] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const googleBtnRef = useRef(null);
 
   useEffect(() => {
@@ -169,6 +171,8 @@ export default function AuthScreen({ onLogin }) {
     setError('');
     setMessage('');
     setPassword('');
+    setShowDoctorPassword(false);
+    setShowAdminPassword(false);
   };
 
   const isAdminView = view === 'admin';
@@ -214,13 +218,33 @@ export default function AuthScreen({ onLogin }) {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
                 <input
-                  type="password"
+                  type={(view === 'login' && showDoctorPassword) || (view === 'admin' && showAdminPassword) ? 'text' : 'password'}
                   required
-                  className="input-field pl-10"
+                  className="input-field pl-10 pr-10"
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
+                {view === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDoctorPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                    aria-label={showDoctorPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showDoctorPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                )}
+                {view === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                    aria-label={showAdminPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                )}
               </div>
             </div>
           )}
