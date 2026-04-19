@@ -330,7 +330,12 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header userEmail={userEmail} onMenuClick={() => setSidebarOpen(o => !o)} />
+        <Header
+          userEmail={userEmail}
+          onMenuClick={() => setSidebarOpen(o => !o)}
+          onSettingsClick={() => setActiveTab('Settings')}
+          onLogout={onLogout}
+        />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">

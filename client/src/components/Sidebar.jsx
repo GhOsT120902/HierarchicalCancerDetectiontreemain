@@ -1,4 +1,4 @@
-import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, Settings, FlaskConical, Moon, Sun, LogOut, Shield, HelpCircle } from 'lucide-react';
+import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, FlaskConical, Moon, Sun, LogOut, Shield, HelpCircle } from 'lucide-react';
 
 export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setActiveTab, isAdmin }) {
   const navItems = [
@@ -6,7 +6,6 @@ export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setAc
     { name: 'Upload Scan',    icon: UploadIcon },
     { name: 'Results',        icon: BarChart2 },
     { name: 'Reports',        icon: FileText },
-    { name: 'Settings',       icon: Settings },
     { name: 'Help',           icon: HelpCircle },
   ];
 
