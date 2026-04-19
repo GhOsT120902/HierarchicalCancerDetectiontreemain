@@ -101,15 +101,20 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
                 'No images found. Check the folders listed above match expected names.\n'
                 'Valid organ folders: ALL, Brain Cancer, Breast Cancer, Cervical Cancer, '
                 'Kidney Cancer, Lung and Colon Cancer, Lymphoma, Oral Cancer\n'
-                'Valid subtype folders (examples): brain_glioma, breast_malignant, lung_aca, kidney_tumor, etc.\n'
-                'Required structure: OrganFolder/subtype_folder/image.jpg'
+                'Supported structures:\n'
+                '  Full:        OrganFolder/subtype_folder/image.jpg\n'
+                '  Organ-only:  OrganFolder/image.jpg  (only organ accuracy evaluated)'
             )
             with server._eval_lock:
                 server._eval_status = 'error'
                 server._eval_error = expected
                 server._eval_log.append(expected)
             return
-        log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
+        organ_only = sum(1 for _, gt in entries if gt.get('subtype_label') is None)
+        if organ_only > 0:
+            log(f'Found {len(entries)} images ({organ_only} organ-only — subtype/normality levels skipped for those). Running inference...')
+        else:
+            log(f'Found {len(entries)} images. Running inference (this may take several minutes)...')
 
         original_gradcam = server.engine._generate_gradcam
         server.engine._generate_gradcam = lambda *a, **kw: None

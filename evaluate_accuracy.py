@@ -94,6 +94,22 @@ def build_ground_truth(
     }
 
 
+def _organ_only_ground_truth(organ_folder: str) -> dict[str, object] | None:
+    organ_index = ORGAN_FOLDER_TO_INDEX.get(organ_folder)
+    if organ_index is None:
+        organ_index = _ORGAN_FOLDER_LOWER.get(organ_folder.lower())
+    if organ_index is None:
+        return None
+    return {
+        "organ_index": organ_index,
+        "organ_label": ORGAN_CLASSES[organ_index],
+        "subtype_index": None,
+        "subtype_label": None,
+        "subtype_display": None,
+        "expected_normality": None,
+    }
+
+
 def collect_image_paths(
     test_data_dir: Path, logger=None, organ_filter: str | None = None
 ) -> list[tuple[Path, dict[str, object]]]:
@@ -108,16 +124,36 @@ def collect_image_paths(
         organ_folder = organ_dir.name
         if organ_filter_lower and organ_folder.lower() != organ_filter_lower:
             continue
-        for subtype_dir in sorted(organ_dir.iterdir()):
-            if not subtype_dir.is_dir():
-                continue
-            subtype_folder = subtype_dir.name
-            gt = build_ground_truth(organ_folder, subtype_folder)
+
+        children = list(organ_dir.iterdir())
+        has_subdirs = any(p.is_dir() for p in children)
+        has_images_direct = any(
+            p.is_file() and p.suffix.lower() in image_extensions for p in children
+        )
+
+        if has_subdirs:
+            for subtype_dir in sorted(p for p in children if p.is_dir()):
+                subtype_folder = subtype_dir.name
+                gt = build_ground_truth(organ_folder, subtype_folder)
+                if gt is None:
+                    skipped_folders.append(f"{organ_folder}/{subtype_folder}")
+                    continue
+                for image_file in sorted(subtype_dir.iterdir()):
+                    if image_file.suffix.lower() in image_extensions:
+                        entries.append((image_file, gt))
+
+        if has_images_direct and not has_subdirs:
+            gt = _organ_only_ground_truth(organ_folder)
             if gt is None:
-                skipped_folders.append(f"{organ_folder}/{subtype_folder}")
-                continue
-            for image_file in sorted(subtype_dir.iterdir()):
-                if image_file.suffix.lower() in image_extensions:
+                skipped_folders.append(organ_folder)
+            else:
+                if logger is not None:
+                    logger.warning(
+                        "Images found directly in organ folder '%s' (no subtype subfolder). "
+                        "Only organ-level accuracy will be evaluated for these images.",
+                        organ_folder,
+                    )
+                for image_file in sorted(p for p in children if p.is_file() and p.suffix.lower() in image_extensions):
                     entries.append((image_file, gt))
 
     if skipped_folders and logger is not None:
@@ -155,14 +191,16 @@ def evaluate(
             if organ_pred_index is not None:
                 organ_correct = int(organ_pred_index) == int(gt["organ_index"])
 
+        has_subtype_gt = gt.get("subtype_label") is not None
+
         level2 = prediction.get("level2") or prediction.get("normality")
-        if level2 is not None and level2.get("status") not in (None, "NOT_EVALUATED"):
+        if has_subtype_gt and level2 is not None and level2.get("status") not in (None, "NOT_EVALUATED"):
             normality_pred = level2.get("status")
             if normality_pred in ("NORMAL", "ABNORMAL"):
                 normality_correct = normality_pred == gt["expected_normality"]
 
         level3 = prediction.get("level3") or prediction.get("subtype") or prediction.get("subtype_prediction")
-        if level3 is not None:
+        if has_subtype_gt and level3 is not None:
             raw_label = level3.get("label")
             if raw_label is not None:
                 subtype_key = None
