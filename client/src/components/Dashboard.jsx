@@ -8,6 +8,7 @@ import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
 import ReportsPanel from './ReportsPanel';
 import AdminControls from './AdminControls';
+import Help from './Help';
 
 function SettingsPanel() {
   const [currentPw, setCurrentPw] = useState('');
@@ -273,6 +274,9 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
       case 'Admin Controls':
         return isAdmin ? <AdminControls /> : null;
+
+      case 'Help':
+        return <Help />;
 
       default:
         return (
