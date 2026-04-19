@@ -58,8 +58,8 @@ export default function DiagnosticResults({ result, onExport }) {
   const { modality, organ_prediction, normality, subtype_prediction, charts, gradcam } = result;
 
   return (
-    <div className="card flex flex-col h-full overflow-y-auto max-h-[800px] pr-2">
-      <div className="flex items-center justify-between mb-6 sticky top-0 bg-[var(--bg-card)] z-10 pb-2">
+    <div className="card flex flex-col h-full">
+      <div className="flex items-center justify-between mb-6 sticky top-0 bg-[var(--bg-card)] z-10 pb-3 -mx-6 px-6 pt-1">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <Activity size={18} />
