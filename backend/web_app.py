@@ -57,6 +57,15 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
         from evaluate_accuracy import collect_image_paths, evaluate, compute_metrics, DEFAULT_TEST_DATA_DIR
         organ_filter = server._eval_organ_filter
 
+        model_status = server.engine.get_model_status()
+        if not model_status.get('organ_ready'):
+            reason = model_status.get('organ_error') or 'Organ model failed to load. The checkpoint file may be corrupted or missing.'
+            with server._eval_lock:
+                server._eval_status = 'error'
+                server._eval_error = f'Cannot run evaluation: {reason}'
+                server._eval_log.append(f'Error: Organ model not ready — {reason}')
+            return
+
         with server._eval_lock:
             custom_dir = server._eval_custom_dir
             temp_dir_to_clean = server._eval_temp_dir
