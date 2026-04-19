@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown } from 'lucide-react';
+import { Upload as UploadIcon, FileText, Image as ImageIcon, X, FolderOpen, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
 function compressThumbnail(dataUrl, maxW, maxH) {
   return new Promise((resolve) => {
@@ -34,23 +34,20 @@ async function saveHistoryEntry(result, filename, imageDataUrl, reportId) {
   } catch {}
 }
 
-function TestDataBrowser({ onSelect, onClose }) {
+function TestDataBrowser({ onSelect }) {
   const [organs, setOrgans] = useState({});
   const [activeOrgan, setActiveOrgan] = useState('');
-  const [activeSubtype, setActiveSubtype] = useState('');
-  const [loading, setLoading] = useState(true);
   const [loadingImage, setLoadingImage] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/testdata')
+    fetch('/api/test-images')
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
-          setOrgans(data.organs || {});
-          const first = Object.keys(data.organs || {})[0] || '';
-          setActiveOrgan(first);
-          const firstSub = Object.keys((data.organs[first] || {}).subtypes || {})[0] || '';
-          setActiveSubtype(firstSub);
+          const organData = data.organs || {};
+          setOrgans(organData);
+          setActiveOrgan(Object.keys(organData)[0] || '');
         }
       })
       .finally(() => setLoading(false));
@@ -58,20 +55,12 @@ function TestDataBrowser({ onSelect, onClose }) {
 
   const organList = Object.keys(organs);
   const subtypes = organs[activeOrgan]?.subtypes || {};
-  const subtypeList = Object.keys(subtypes);
-  const images = subtypes[activeSubtype] || [];
 
-  const handleOrganChange = (organ) => {
-    setActiveOrgan(organ);
-    const firstSub = Object.keys((organs[organ] || {}).subtypes || {})[0] || '';
-    setActiveSubtype(firstSub);
-  };
-
-  const handleImageClick = async (filename) => {
-    const path = encodeURIComponent(`${activeOrgan}/${activeSubtype}/${filename}`);
-    setLoadingImage(filename);
+  const handleImageClick = async (organName, subtypeName, filename) => {
+    const path = encodeURIComponent(`${organName}/${subtypeName}/${filename}`);
+    setLoadingImage(`${subtypeName}/${filename}`);
     try {
-      const res = await fetch(`/api/testdata/image?path=${path}`);
+      const res = await fetch(`/api/test-image?path=${path}`);
       if (!res.ok) return;
       const blob = await res.blob();
       const previewUrl = URL.createObjectURL(blob);
@@ -88,107 +77,71 @@ function TestDataBrowser({ onSelect, onClose }) {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 size={20} className="animate-spin text-cyan-500" />
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div
-        className="w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border"
-        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
-              <FolderOpen size={17} />
-            </div>
-            <h3 className="font-bold text-base" style={{ color: 'var(--text-main)' }}>Browse Test Images</h3>
-          </div>
+    <div>
+      {/* Organ tabs */}
+      <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3 border-b border-[var(--border-color)]">
+        {organList.map(organ => (
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-main)]"
-            style={{ color: 'var(--text-muted)' }}
+            key={organ}
+            onClick={() => setActiveOrgan(organ)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              activeOrgan === organ
+                ? 'bg-cyan-500 text-slate-900'
+                : 'border border-[var(--border-color)] text-[var(--text-muted)] hover:border-cyan-500/50 hover:text-cyan-500'
+            }`}
           >
-            <X size={18} />
+            {organ}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      {/* Subtype groups */}
+      <div className="max-h-72 overflow-y-auto px-4 py-3 space-y-4">
+        {Object.entries(subtypes).map(([subtype, images]) => (
+          <div key={subtype}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+              {subtype.replace(/_/g, ' ')}
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map(filename => {
+                const key = `${subtype}/${filename}`;
+                const path = encodeURIComponent(`${activeOrgan}/${subtype}/${filename}`);
+                const isLoading = loadingImage === key;
+                return (
+                  <button
+                    key={filename}
+                    onClick={() => handleImageClick(activeOrgan, subtype, filename)}
+                    disabled={loadingImage !== null}
+                    title={filename}
+                    className="relative shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all hover:border-cyan-500 disabled:opacity-60 focus:outline-none focus:border-cyan-500"
+                    style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-main)' }}
+                  >
+                    <img
+                      src={`/api/test-image?path=${path}`}
+                      alt={filename}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                    {isLoading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <Loader2 size={14} className="animate-spin text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="px-5 pt-4 pb-3 flex gap-2 flex-wrap border-b" style={{ borderColor: 'var(--border-color)' }}>
-              {organList.map(organ => (
-                <button
-                  key={organ}
-                  onClick={() => handleOrganChange(organ)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                    activeOrgan === organ
-                      ? 'bg-cyan-500 text-slate-900'
-                      : 'border hover:border-cyan-500/50 hover:text-cyan-500'
-                  }`}
-                  style={activeOrgan !== organ ? { borderColor: 'var(--border-color)', color: 'var(--text-muted)' } : {}}
-                >
-                  {organ}
-                </button>
-              ))}
-            </div>
-
-            <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <label className="text-xs font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>Subtype</label>
-              <div className="relative flex-1 max-w-xs">
-                <select
-                  value={activeSubtype}
-                  onChange={e => setActiveSubtype(e.target.value)}
-                  className="input-field text-sm py-1.5 pr-8 appearance-none"
-                >
-                  {subtypeList.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-              </div>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{images.length} image{images.length !== 1 ? 's' : ''}</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5">
-              {images.length === 0 ? (
-                <p className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>No images found in this subtype.</p>
-              ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
-                  {images.map(filename => {
-                    const path = encodeURIComponent(`${activeOrgan}/${activeSubtype}/${filename}`);
-                    const isLoading = loadingImage === filename;
-                    return (
-                      <button
-                        key={filename}
-                        onClick={() => handleImageClick(filename)}
-                        disabled={loadingImage !== null}
-                        className="relative group rounded-xl overflow-hidden border-2 aspect-square flex items-center justify-center transition-all hover:border-cyan-500 focus:outline-none focus:border-cyan-500 disabled:opacity-60"
-                        style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-main)' }}
-                        title={filename}
-                      >
-                        <img
-                          src={`/api/testdata/image?path=${path}`}
-                          alt={filename}
-                          loading="lazy"
-                          className="w-full h-full object-cover"
-                        />
-                        {isLoading && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                          {filename}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -288,15 +241,9 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   const organOptions = modelStatus?.organ_options || [];
 
   return (
-    <>
-      {showBrowser && (
-        <TestDataBrowser
-          onSelect={handleTestImageSelect}
-          onClose={() => setShowBrowser(false)}
-        />
-      )}
-
-      <div className="card flex flex-col h-full">
+    <div className="flex flex-col gap-4">
+      {/* Upload card */}
+      <div className="card flex flex-col">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <UploadIcon size={18} />
@@ -305,7 +252,7 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
         </div>
 
         <div
-          className={`flex-1 min-h-[240px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition-colors ${
+          className={`min-h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition-colors ${
             preview ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-[var(--border-color)] hover:border-cyan-500/50 hover:bg-[var(--bg-main)]'
           }`}
           onDragOver={e => e.preventDefault()}
@@ -321,8 +268,8 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
           />
 
           {preview ? (
-            <div className="relative w-full h-full min-h-[200px] flex items-center justify-center group">
-              <img src={preview} alt="Scan preview" className="max-h-[240px] object-contain rounded-lg shadow-md" />
+            <div className="relative w-full h-full min-h-[180px] flex items-center justify-center group">
+              <img src={preview} alt="Scan preview" className="max-h-[220px] object-contain rounded-lg shadow-md" />
               <button
                 onClick={(e) => { e.stopPropagation(); handleClear(); }}
                 className="absolute top-2 right-2 bg-slate-900/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
@@ -337,17 +284,10 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
               </div>
               <p className="font-medium text-[var(--text-main)] mb-1">Drag & Drop your scan here</p>
               <p className="text-sm text-[var(--text-muted)]">or click to browse from system</p>
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4">
                 <div className="text-xs font-semibold text-cyan-500 bg-cyan-500/10 px-3 py-1 rounded-full">
                   Supports JPG, PNG, TIFF, DICOM
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowBrowser(true); }}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-muted)] hover:border-cyan-500/60 hover:text-cyan-500 transition-colors"
-                >
-                  <FolderOpen size={13} />
-                  Test Data
-                </button>
               </div>
             </>
           )}
@@ -421,6 +361,26 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
           </p>
         </div>
       </div>
-    </>
+
+      {/* Test Data Browser accordion */}
+      <div className="card overflow-hidden p-0">
+        <button
+          onClick={() => setShowBrowser(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--text-main)] hover:bg-[var(--bg-main)] transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <FolderOpen size={16} className="text-cyan-500" />
+            Browse Test Data Samples
+          </span>
+          {showBrowser ? <ChevronUp size={16} className="text-[var(--text-muted)]" /> : <ChevronDown size={16} className="text-[var(--text-muted)]" />}
+        </button>
+
+        {showBrowser && (
+          <div className="border-t border-[var(--border-color)]">
+            <TestDataBrowser onSelect={handleTestImageSelect} />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
