@@ -16,6 +16,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 _logger = logging.getLogger('hierarchical_inference')
 
+DEMO_EMAIL = 'demo@medai.demo'
+
 import secrets as _secrets
 import time as _time
 
@@ -376,7 +378,7 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
 
         report_id: str | None = None
         email = self._get_user_email()
-        if email:
+        if email and email != DEMO_EMAIL:
             import time, random, string
             rand_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             report_id = f"{int(time.time() * 1000)}_{rand_suffix}"
@@ -890,6 +892,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if not email:
             self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
             return
+        if email == DEMO_EMAIL:
+            self._send_json({'ok': True})
+            return
         try:
             body = self._read_json_body()
         except ValueError as exc:
@@ -931,6 +936,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         email = self._get_user_email()
         if not email:
             self._send_json({'ok': False, 'error': 'Not authenticated.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        if email == DEMO_EMAIL:
+            self._send_json({'ok': True})
             return
         try:
             body = self._read_json_body()
