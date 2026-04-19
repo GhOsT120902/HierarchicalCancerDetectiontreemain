@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Activity, BoxSelect, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Activity, BoxSelect, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
-export default function DiagnosticResults({ result }) {
+export default function DiagnosticResults({ result, onExport }) {
   const [showJson, setShowJson] = useState(false);
 
   const getToneClass = (color) => {
@@ -54,9 +54,20 @@ export default function DiagnosticResults({ result }) {
           <h2 className="text-lg font-bold">Diagnostic Results</h2>
         </div>
         
-        <div className={`px-4 py-1.5 rounded-full font-bold text-sm border flex items-center gap-2 ${getToneClass(result.status === 'Abnormal' ? 'red' : 'green')}`}>
-          {result.status === 'Abnormal' ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
-          {result.final_decision}
+        <div className="flex items-center gap-3">
+          <div className={`px-4 py-1.5 rounded-full font-bold text-sm border flex items-center gap-2 ${getToneClass(result.status === 'Abnormal' ? 'red' : 'green')}`}>
+            {result.status === 'Abnormal' ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
+            {result.final_decision}
+          </div>
+          {onExport && (
+            <button
+              onClick={onExport}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-cyan-500 hover:bg-cyan-600 text-slate-900 transition-colors"
+            >
+              <FileText size={15} />
+              Export PDF
+            </button>
+          )}
         </div>
       </div>
 

@@ -1,12 +1,19 @@
-import { Search, Bell } from 'lucide-react';
+import { Search, Bell, Menu } from 'lucide-react';
 
-export default function Header({ userEmail }) {
+export default function Header({ userEmail, onMenuClick }) {
   const initial = userEmail ? userEmail.charAt(0).toUpperCase() : 'D';
   const name = userEmail ? userEmail.split('@')[0] : 'Doctor';
 
   return (
     <header className="h-16 border-b flex items-center justify-between px-6 bg-[var(--bg-card)] border-[var(--border-color)]">
-      <div className="flex-1 flex items-center">
+      <div className="flex-1 flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1 rounded-md hover:bg-[var(--bg-main)]"
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={22} />
+        </button>
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
           <input 

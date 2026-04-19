@@ -111,7 +111,10 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
         const a = document.createElement('a');
         a.href = url;
         a.download = `MedAI_Report_${file.name}.pdf`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
       }
     } catch(err) {
       console.error(err);

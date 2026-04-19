@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Settings, Lock, KeyRound, Check } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -127,6 +127,8 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError]             = useState(null);
   const [activeTab, setActiveTab]     = useState('Dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [exportData, setExportData]   = useState(null);
   const userEmail = localStorage.getItem('medai_user_email') || 'doctor@hospital.org';
 
   useEffect(() => {
@@ -160,6 +162,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       const data = await res.json();
       if (data.ok) {
         setResult(data.result);
+        setExportData({ filename: payload.filename, imageData: payload.image_data });
         if (data.result.model_status) setModelStatus(data.result.model_status);
         setActiveTab('Results');
       } else {
@@ -171,6 +174,34 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       setIsProcessing(false);
     }
   };
+
+  const handleExport = useCallback(async () => {
+    if (!result || !exportData) return;
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: exportData.filename,
+          image_data: exportData.imageData,
+          result,
+        }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MedAI_Report_${exportData.filename}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [result, exportData]);
 
   const renderMain = () => {
     switch (activeTab) {
@@ -197,7 +228,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
       case 'Results':
         return result ? (
-          <DiagnosticResults result={result} />
+          <DiagnosticResults result={result} onExport={exportData ? handleExport : null} />
         ) : (
           <div
             className="card flex flex-col items-center justify-center text-center py-20 border border-dashed border-[var(--border-color)]"
@@ -257,17 +288,30 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        onLogout={onLogout}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
+    <div className="flex h-screen overflow-hidden relative">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed inset-y-0 left-0 z-30 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ width: '16rem' }}
+      >
+        <Sidebar
+          onLogout={onLogout}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          activeTab={activeTab}
+          setActiveTab={(tab) => { setActiveTab(tab); setSidebarOpen(false); }}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header userEmail={userEmail} />
+        <Header userEmail={userEmail} onMenuClick={() => setSidebarOpen(o => !o)} />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
