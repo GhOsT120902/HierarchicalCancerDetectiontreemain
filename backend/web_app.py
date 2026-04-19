@@ -497,6 +497,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _handle_evaluate_get(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
         with self.server._eval_lock:
             self._send_json({
                 'ok': True,
@@ -508,6 +511,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             })
 
     def _handle_evaluate_post(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
         try:
             body = self._read_json_body()
         except ValueError:
@@ -528,6 +534,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         self._send_json({'ok': True, 'status': 'running'})
 
     def _handle_evaluate_upload(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
         with self.server._eval_lock:
             if self.server._eval_status == 'running':
                 self._send_json({'ok': False, 'error': 'Evaluation is already running.'})

@@ -180,9 +180,19 @@ export default function ModelAccuracy() {
     if (of_ !== undefined) setScopeLabel(of_ || 'All Organs');
   }, []);
 
+  const adminHeaders = () => ({
+    'X-Admin-Token': localStorage.getItem('medai_admin_token') || '',
+  });
+
   const pollStatus = useCallback(async () => {
     try {
-      const res  = await fetch('/api/evaluate');
+      const res  = await fetch('/api/evaluate', { headers: adminHeaders() });
+      if (res.status === 401) {
+        setStatus('error');
+        setEvalError('Admin access required to view evaluation status.');
+        pollRef.current = null;
+        return;
+      }
       const data = await res.json();
       applyState(data);
       if (data.status === 'running') {
@@ -214,9 +224,14 @@ export default function ModelAccuracy() {
     try {
       const res  = await fetch('/api/evaluate', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminHeaders() },
         body:    JSON.stringify({ organ_filter: organFilter || null }),
       });
+      if (res.status === 401) {
+        setStatus('error');
+        setEvalError('Admin access required to run evaluation.');
+        return;
+      }
       const data = await res.json();
       if (!data.ok) {
         setStatus('error');
@@ -238,11 +253,17 @@ export default function ModelAccuracy() {
     setMetrics(null);
     setLog([]);
     setEvalError('');
-    const headers = { 'Content-Type': 'application/zip' };
+    const headers = { 'Content-Type': 'application/zip', ...adminHeaders() };
     if (organFilter) headers['X-Organ-Filter'] = organFilter;
     try {
       const buf  = await zipFile.arrayBuffer();
       const res  = await fetch('/api/evaluate/upload', { method: 'POST', headers, body: buf });
+      if (res.status === 401) {
+        setStatus('error');
+        setEvalError('Admin access required to upload and run evaluation.');
+        setIsUploading(false);
+        return;
+      }
       const data = await res.json();
       if (!data.ok) {
         setStatus('error');
