@@ -35,12 +35,10 @@ export default function AuthScreen({ onLogin }) {
           if (googleBtnRef.current) {
             googleBtnRef.current.innerHTML = '';
             window.google.accounts.id.renderButton(googleBtnRef.current, {
-              type: 'standard',
+              type: 'icon',
               theme: 'filled_black',
               size: 'large',
-              shape: 'rectangular',
-              width: 360,
-              text: 'signin_with',
+              shape: 'circle',
             });
           }
         };
