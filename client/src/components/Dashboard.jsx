@@ -252,9 +252,10 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
     setError(null);
     setResult(null);
     try {
+      const userEmail = localStorage.getItem('medai_user_email') || '';
       const res = await fetch('/api/predict', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
         body:    JSON.stringify(payload),
       });
       const data = await res.json();
