@@ -28,7 +28,21 @@ function App() {
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const adminToken = localStorage.getItem('medai_admin_token');
+    if (adminToken) {
+      try {
+        const res = await fetch('/api/admin/logout', {
+          method: 'POST',
+          headers: { 'X-Admin-Token': adminToken },
+        });
+        if (!res.ok) {
+          console.warn('Admin session could not be invalidated on the server (status', res.status, '). The local session will still be cleared.');
+        }
+      } catch (err) {
+        console.warn('Admin logout request failed (network error):', err, 'The local session will still be cleared.');
+      }
+    }
     localStorage.removeItem('medai_logged_in');
     localStorage.removeItem('medai_user_email');
     localStorage.removeItem('medai_user_id');

@@ -123,6 +123,11 @@ def _create_admin_session() -> str:
     return token
 
 
+def _delete_admin_session(token: str) -> None:
+    with _admin_sessions_lock:
+        _admin_sessions.pop(token, None)
+
+
 def _validate_admin_session(token: str) -> bool:
     if not token:
         return False
@@ -237,6 +242,9 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/admin/login':
             self._handle_admin_login()
+            return
+        if parsed.path == '/api/admin/logout':
+            self._handle_admin_logout()
             return
         if parsed.path == '/api/admin/history/delete':
             self._handle_admin_history_delete()
@@ -648,6 +656,12 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json({'ok': True, 'is_admin': True, 'admin_token': token})
         else:
             self._send_json({'ok': False, 'error': 'Invalid admin credentials.'}, status=HTTPStatus.UNAUTHORIZED)
+
+    def _handle_admin_logout(self) -> None:
+        token = (self.headers.get('X-Admin-Token') or '').strip()
+        if token:
+            _delete_admin_session(token)
+        self._send_json({'ok': True})
 
     def _handle_admin_history_all(self, query_string: str = '') -> None:
         if not self._is_admin_request():
