@@ -1,4 +1,4 @@
-import { Search, Bell, Menu } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 
 export default function Header({ userEmail, onMenuClick }) {
   const initial = userEmail ? userEmail.charAt(0).toUpperCase() : 'D';
@@ -6,7 +6,7 @@ export default function Header({ userEmail, onMenuClick }) {
 
   return (
     <header className="h-16 border-b flex items-center justify-between px-6 bg-[var(--bg-card)] border-[var(--border-color)]">
-      <div className="flex-1 flex items-center gap-3">
+      <div className="flex items-center">
         <button
           onClick={onMenuClick}
           className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1 rounded-md hover:bg-[var(--bg-main)]"
@@ -14,14 +14,6 @@ export default function Header({ userEmail, onMenuClick }) {
         >
           <Menu size={22} />
         </button>
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search patient ID, scans..." 
-            className="input-field pl-10 h-9 rounded-full bg-[var(--bg-main)] border-transparent focus:bg-transparent focus:border-cyan-500"
-          />
-        </div>
       </div>
 
       <div className="flex items-center space-x-6">
