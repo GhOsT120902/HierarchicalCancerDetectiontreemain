@@ -5,9 +5,9 @@ export const DEMO_RESULT = {
   final_decision: 'Malignant — Glioma',
   status: 'Abnormal',
   modality: { type: 'Histopathology', status: 'Valid', color: 'green', confidence: 0.993 },
-  organ_prediction: { label: 'Brain Cancer', confidence: 0.974, selected_label: 'Brain Cancer' },
+  organ_prediction: { label: 'Brain Cancer', confidence: 0.974, selected_label: 'Brain Cancer', status: 'HIGH_CONFIDENCE', color: 'green' },
   normality: { label: 'Abnormal', status: 'Abnormal', color: 'red', confidence: 0.941 },
-  subtype_prediction: { label: 'Glioma', confidence: 0.912, interpreted_label: 'Glioma' },
+  subtype_prediction: { label: 'Glioma', confidence: 0.912, interpreted_label: 'Glioma', status: 'HIGH_CONFIDENCE', color: 'green' },
   charts: {
     organ: {
       title: 'Organ Probability Distribution',
@@ -39,9 +39,9 @@ export const DEMO_HISTORY = [
     result: {
       final_decision: 'Malignant — Glioma',
       status: 'Abnormal',
-      organ_prediction: { label: 'Brain Cancer', confidence: 0.974, selected_label: 'Brain Cancer' },
+      organ_prediction: { label: 'Brain Cancer', confidence: 0.974, selected_label: 'Brain Cancer', status: 'HIGH_CONFIDENCE', color: 'green' },
       normality: { label: 'Abnormal', status: 'Abnormal', color: 'red', confidence: 0.941 },
-      subtype_prediction: { label: 'Glioma', confidence: 0.912, interpreted_label: 'Glioma' },
+      subtype_prediction: { label: 'Glioma', confidence: 0.912, interpreted_label: 'Glioma', status: 'HIGH_CONFIDENCE', color: 'green' },
       modality: { type: 'Histopathology', status: 'Valid', color: 'green', confidence: 0.993 },
     },
   },
@@ -54,9 +54,9 @@ export const DEMO_HISTORY = [
     result: {
       final_decision: 'Malignant — Breast Malignant',
       status: 'Abnormal',
-      organ_prediction: { label: 'Breast Cancer', confidence: 0.956, selected_label: 'Breast Cancer' },
+      organ_prediction: { label: 'Breast Cancer', confidence: 0.956, selected_label: 'Breast Cancer', status: 'HIGH_CONFIDENCE', color: 'green' },
       normality: { label: 'Abnormal', status: 'Abnormal', color: 'red', confidence: 0.883 },
-      subtype_prediction: { label: 'Breast Malignant', confidence: 0.864, interpreted_label: 'Breast Malignant' },
+      subtype_prediction: { label: 'Breast Malignant', confidence: 0.864, interpreted_label: 'Breast Malignant', status: 'HIGH_CONFIDENCE', color: 'green' },
       modality: { type: 'Histopathology', status: 'Valid', color: 'green', confidence: 0.987 },
     },
   },
@@ -69,9 +69,9 @@ export const DEMO_HISTORY = [
     result: {
       final_decision: 'Malignant — Lung Adenocarcinoma',
       status: 'Abnormal',
-      organ_prediction: { label: 'Lung and Colon Cancer', confidence: 0.931, selected_label: 'Lung and Colon Cancer' },
+      organ_prediction: { label: 'Lung and Colon Cancer', confidence: 0.931, selected_label: 'Lung and Colon Cancer', status: 'HIGH_CONFIDENCE', color: 'green' },
       normality: { label: 'Abnormal', status: 'Abnormal', color: 'red', confidence: 0.907 },
-      subtype_prediction: { label: 'Lung Adenocarcinoma', confidence: 0.889, interpreted_label: 'Lung Adenocarcinoma' },
+      subtype_prediction: { label: 'Lung Adenocarcinoma', confidence: 0.889, interpreted_label: 'Lung Adenocarcinoma', status: 'HIGH_CONFIDENCE', color: 'green' },
       modality: { type: 'Histopathology', status: 'Valid', color: 'green', confidence: 0.971 },
     },
   },
@@ -84,7 +84,7 @@ export const DEMO_HISTORY = [
     result: {
       final_decision: 'Normal — No abnormality detected',
       status: 'Normal',
-      organ_prediction: { label: 'Cervical Cancer', confidence: 0.889, selected_label: 'Cervical Cancer' },
+      organ_prediction: { label: 'Cervical Cancer', confidence: 0.889, selected_label: 'Cervical Cancer', status: 'HIGH_CONFIDENCE', color: 'green' },
       normality: { label: 'Normal', status: 'Normal', color: 'green', confidence: 0.921 },
       subtype_prediction: null,
       modality: { type: 'Histopathology', status: 'Valid', color: 'green', confidence: 0.964 },

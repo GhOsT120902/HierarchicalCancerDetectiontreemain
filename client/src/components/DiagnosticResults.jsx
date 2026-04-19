@@ -34,6 +34,11 @@ export default function DiagnosticResults({ result, onExport }) {
     return 'text-blue-500';
   };
 
+  const prettifyStatus = (status) => {
+    if (!status) return 'Unknown';
+    return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   if (!result) {
     return (
       <div data-tour="diagnostic-results" className="card flex flex-col h-full">
@@ -115,9 +120,16 @@ export default function DiagnosticResults({ result, onExport }) {
           <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Level 1: Tissue</h3>
           <div className="flex items-center justify-between">
             <span className="font-semibold text-[var(--text-main)]">{organ_prediction?.label || 'N/A'}</span>
-            {organ_prediction?.manual_override_required && (
-              <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">Override Used</span>
-            )}
+            <div className="flex items-center gap-1.5">
+              {organ_prediction?.status && (
+                <span className={`text-xs px-2 py-0.5 rounded font-medium border ${getToneClass(organ_prediction?.color)}`}>
+                  {prettifyStatus(organ_prediction?.status)}
+                </span>
+              )}
+              {organ_prediction?.manual_override_required && (
+                <span className="text-xs px-2 py-0.5 rounded font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">Override</span>
+              )}
+            </div>
           </div>
           <div className="mt-2 text-xs flex justify-between text-[var(--text-muted)]">
             <span>Confidence</span>
@@ -145,6 +157,11 @@ export default function DiagnosticResults({ result, onExport }) {
           <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Level 3: Subtype</h3>
           <div className="flex items-center justify-between">
             <span className="font-semibold text-[var(--text-main)]">{subtype_prediction?.label || 'N/A'}</span>
+            {subtype_prediction?.status && (
+              <span className={`text-xs px-2 py-0.5 rounded font-medium border ${getToneClass(subtype_prediction?.color)}`}>
+                {prettifyStatus(subtype_prediction?.status)}
+              </span>
+            )}
           </div>
           <div className="mt-2 text-xs flex justify-between text-[var(--text-muted)]">
             <span>Confidence</span>
