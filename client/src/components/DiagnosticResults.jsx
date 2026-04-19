@@ -59,8 +59,7 @@ export default function DiagnosticResults({ result, onExport }) {
 
   return (
     <div className="card flex flex-col">
-      {/* Fixed header — lives outside the scroll area, never moves */}
-      <div className="shrink-0 flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-color)]">
+      <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-color)]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <Activity size={18} />
@@ -94,9 +93,6 @@ export default function DiagnosticResults({ result, onExport }) {
           )}
         </div>
       </div>
-
-      {/* Scrollable content area */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         {/* Step 0 */}
@@ -233,7 +229,6 @@ export default function DiagnosticResults({ result, onExport }) {
         )}
       </div>
 
-      </div>{/* end scrollable area */}
     </div>
   );
 }
