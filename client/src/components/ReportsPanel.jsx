@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, Trash2, RefreshCw, CheckCircle2, AlertTriangle, Clock, XCircle, Search, X } from 'lucide-react';
+import { FileText, Download, Trash2, RefreshCw, CheckCircle2, AlertTriangle, Clock, XCircle } from 'lucide-react';
 
 const STATUS_CONFIG = {
   complete:  { label: 'Complete',      icon: CheckCircle2,    cls: 'text-green-500  bg-green-500/10  border-green-500/20'  },
@@ -19,10 +19,9 @@ function groupByDate(reports) {
 }
 
 export default function ReportsPanel() {
-  const [reports, setReports]         = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [reports, setReports]     = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [downloading, setDownloading] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const email = localStorage.getItem('medai_user_email') || '';
 
   const fetchReports = async () => {
@@ -69,24 +68,11 @@ export default function ReportsPanel() {
     } catch {}
   };
 
-  const filteredReports = searchQuery.trim()
-    ? reports.filter(r => {
-        const q = searchQuery.toLowerCase();
-        return (
-          r.filename?.toLowerCase().includes(q) ||
-          r.final_decision?.toLowerCase().includes(q) ||
-          r.organ?.toLowerCase().includes(q) ||
-          r.status?.toLowerCase().includes(q) ||
-          r.report_id?.toLowerCase().includes(q)
-        );
-      })
-    : reports;
-
-  const grouped = groupByDate(filteredReports);
+  const grouped = groupByDate(reports);
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <FileText size={18} />
@@ -111,28 +97,6 @@ export default function ReportsPanel() {
         </button>
       </div>
 
-      {reports.length > 0 && (
-        <div className="relative mb-5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} style={{ color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="input-field pl-9 pr-8 w-full text-sm"
-            placeholder="Search by filename, diagnosis, organ or status…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      )}
-
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -145,18 +109,7 @@ export default function ReportsPanel() {
           <FileText size={44} className="mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
           <h3 className="font-bold mb-1" style={{ color: 'var(--text-main)' }}>No reports yet</h3>
           <p className="text-sm max-w-sm" style={{ color: 'var(--text-muted)' }}>
-            Run an analysis from the Upload Scan tab. Reports — both complete and partial — are saved automatically and appear here, ready to download instantly.
-          </p>
-        </div>
-      ) : filteredReports.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-dashed"
-          style={{ borderColor: 'var(--border-color)' }}
-        >
-          <Search size={36} className="mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
-          <h3 className="font-bold mb-1" style={{ color: 'var(--text-main)' }}>No reports match</h3>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Try a different search term.
+            Run an analysis from the Upload Scan tab. Reports are saved automatically and appear here, ready to download instantly.
           </p>
         </div>
       ) : (
