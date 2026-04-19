@@ -93,8 +93,11 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
     });
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleExport = async () => {
-    if (!result || !file || !imageData) return;
+    if (!result || !file || !imageData || isExporting) return;
+    setIsExporting(true);
     try {
       const res = await fetch('/api/report', {
         method: 'POST',
@@ -118,6 +121,8 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
       }
     } catch(err) {
       console.error(err);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -214,11 +219,20 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
           
           <button 
             onClick={handleExport}
-            disabled={!result}
+            disabled={!result || isExporting}
             className="btn-outline disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FileText size={18} />
-            Export Report
+            {isExporting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <FileText size={18} />
+                Export Report
+              </>
+            )}
           </button>
         </div>
         

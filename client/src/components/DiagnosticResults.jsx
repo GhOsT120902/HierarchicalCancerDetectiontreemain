@@ -3,6 +3,19 @@ import { Activity, BoxSelect, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp
 
 export default function DiagnosticResults({ result, onExport }) {
   const [showJson, setShowJson] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportClick = async () => {
+    if (!onExport || isExporting) return;
+    setIsExporting(true);
+    try {
+      await onExport();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getToneClass = (color) => {
     switch (color?.toLowerCase()) {
@@ -61,11 +74,21 @@ export default function DiagnosticResults({ result, onExport }) {
           </div>
           {onExport && (
             <button
-              onClick={onExport}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-cyan-500 hover:bg-cyan-600 text-slate-900 transition-colors"
+              onClick={handleExportClick}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold bg-cyan-500 hover:bg-cyan-600 disabled:opacity-70 disabled:cursor-not-allowed text-slate-900 transition-colors"
             >
-              <FileText size={15} />
-              Export PDF
+              {isExporting ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FileText size={15} />
+                  Export PDF
+                </>
+              )}
             </button>
           )}
         </div>
