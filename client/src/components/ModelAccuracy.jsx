@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import JSZip from 'jszip';
 import {
   FlaskConical, Play, RotateCcw, Upload, FolderOpen,
   Loader2, CheckCircle2, AlertTriangle, Filter, X, Download, ChevronDown,
@@ -158,12 +159,15 @@ export default function ModelAccuracy() {
   const [organFilter, setOrganFilter] = useState('');
   const [scopeLabel,  setScopeLabel]  = useState('');
   const [totalImages, setTotalImages] = useState(null);
-  const [zipFile,     setZipFile]     = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [zipFile,      setZipFile]      = useState(null);
+  const [folderFiles,  setFolderFiles]  = useState(null);
+  const [folderName,   setFolderName]   = useState('');
+  const [isUploading,  setIsUploading]  = useState(false);
 
-  const pollRef     = useRef(null);
-  const logRef      = useRef(null);
-  const fileInputRef = useRef(null);
+  const pollRef       = useRef(null);
+  const logRef        = useRef(null);
+  const fileInputRef  = useRef(null);
+  const folderInputRef = useRef(null);
 
   const isRunning = status === 'running';
 
@@ -250,17 +254,38 @@ export default function ModelAccuracy() {
   };
 
   const handleUploadAndRun = async () => {
-    if (!zipFile) return;
+    const hasZip    = !!zipFile;
+    const hasFolder = folderFiles && folderFiles.length > 0;
+    if (!hasZip && !hasFolder) return;
     if (pollRef.current) clearTimeout(pollRef.current);
     setIsUploading(true);
     setStatus('running');
     setMetrics(null);
     setLog([]);
     setEvalError('');
+
+    let buf;
+    try {
+      if (hasZip) {
+        buf = await zipFile.arrayBuffer();
+      } else {
+        const zip = new JSZip();
+        for (const file of folderFiles) {
+          const relativePath = file.webkitRelativePath || file.name;
+          zip.file(relativePath, file);
+        }
+        buf = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE', compressionOptions: { level: 1 } });
+      }
+    } catch (_) {
+      setStatus('error');
+      setEvalError('Failed to prepare dataset for upload.');
+      setIsUploading(false);
+      return;
+    }
+
     const headers = { 'Content-Type': 'application/zip', ...adminHeaders() };
     if (organFilter) headers['X-Organ-Filter'] = organFilter;
     try {
-      const buf  = await zipFile.arrayBuffer();
       const res  = await fetch('/api/evaluate/upload', { method: 'POST', headers, body: buf });
       if (res.status === 401) {
         handleExpiredToken();
@@ -284,7 +309,20 @@ export default function ModelAccuracy() {
 
   const clearZip = () => {
     setZipFile(null);
+    setFolderFiles(null);
+    setFolderName('');
+    if (fileInputRef.current)   fileInputRef.current.value   = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  };
+
+  const handleFolderSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setFolderFiles(files);
+    setZipFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    const firstPath = files[0].webkitRelativePath || '';
+    setFolderName(firstPath ? firstPath.split('/')[0] : 'Selected folder');
   };
 
   const downloadCSV = () => {
@@ -390,13 +428,13 @@ export default function ModelAccuracy() {
           </span>
         </div>
         <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
-          Upload a ZIP file containing images in the required folder structure. The evaluation will run against
+          Upload a ZIP file or select a folder containing images in the required folder structure. The evaluation will run against
           your dataset instead of the built-in test set.
         </p>
 
         <div className="flex flex-wrap gap-2 mb-4">
           {[
-            ['📦', 'Format: .zip only'],
+            ['📦', 'ZIP or folder'],
             ['⚖️', 'Max size: 500 MB'],
             ['🖼️', 'Images: JPEG, PNG, BMP, TIFF'],
           ].map(([icon, text]) => (
@@ -414,7 +452,7 @@ export default function ModelAccuracy() {
           className="rounded-lg p-3 mb-4 font-mono text-[11px] leading-loose border"
           style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
         >
-          <span className="text-cyan-500">YourDataset.zip</span><br />
+          <span className="text-cyan-500">YourDataset/</span> <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>(or YourDataset.zip)</span><br />
           &nbsp;&nbsp;├── Brain Cancer/<br />
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── glioma/<br />
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── img001.jpg …<br />
@@ -426,21 +464,42 @@ export default function ModelAccuracy() {
         <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-cyan-500/40 rounded-md text-cyan-500 text-sm cursor-pointer hover:bg-cyan-500/5 transition-colors">
             <Upload size={14} />
-            <span className="truncate max-w-[200px]">{zipFile ? zipFile.name : 'Choose ZIP file'}</span>
+            <span className="truncate max-w-[180px]">
+              {zipFile ? zipFile.name : folderFiles ? folderName : 'Choose ZIP file'}
+            </span>
             <input
               ref={fileInputRef}
               type="file"
               accept=".zip,application/zip"
               className="hidden"
-              onChange={e => setZipFile(e.target.files?.[0] || null)}
+              onChange={e => {
+                const f = e.target.files?.[0] || null;
+                setZipFile(f);
+                if (f) { setFolderFiles(null); setFolderName(''); if (folderInputRef.current) folderInputRef.current.value = ''; }
+              }}
             />
           </label>
 
-          {zipFile && (
+          <label className="flex items-center gap-2 px-4 py-2 border border-dashed border-cyan-500/40 rounded-md text-cyan-500 text-sm cursor-pointer hover:bg-cyan-500/5 transition-colors">
+            <FolderOpen size={14} />
+            <span className="truncate max-w-[180px]">
+              {folderFiles ? folderName : 'Choose Folder'}
+            </span>
+            <input
+              ref={folderInputRef}
+              type="file"
+              className="hidden"
+              // @ts-ignore
+              webkitdirectory=""
+              onChange={handleFolderSelect}
+            />
+          </label>
+
+          {(zipFile || folderFiles) && (
             <button
               onClick={clearZip}
               className="text-[var(--text-muted)] hover:text-red-500 transition-colors"
-              title="Remove file"
+              title="Remove selection"
             >
               <X size={16} />
             </button>
@@ -448,11 +507,11 @@ export default function ModelAccuracy() {
 
           <button
             onClick={handleUploadAndRun}
-            disabled={!zipFile || isRunning || isUploading}
+            disabled={(!zipFile && !folderFiles) || isRunning || isUploading}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isUploading
-              ? <><Loader2 size={16} className="animate-spin" /> Uploading…</>
+              ? <><Loader2 size={16} className="animate-spin" /> {folderFiles ? 'Zipping & uploading…' : 'Uploading…'}</>
               : <><Upload size={16} /> Upload & Run</>}
           </button>
         </div>
