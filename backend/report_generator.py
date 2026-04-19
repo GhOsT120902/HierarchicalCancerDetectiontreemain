@@ -404,11 +404,11 @@ def _draw_visual_section(canvas: ReportCanvas, result: dict[str, object], images
     canvas.ensure_space(card_height * (2 if has_subtype_cam and has_organ_cam and has_input else 1) + 12)
     top_y = canvas.y
     _draw_visual_card(canvas, _PDF_MARGIN, top_y, card_width, card_height, title='Input Scan', image_name='ImInput' if has_input else None, image_spec=images.get('ImInput'), caption='Submitted image used for analysis.')
-    organ_label = _safe((result.get('gradcam') or {}).get('organ', {}).get('label'), 'Organ attention not available')
+    organ_label = _safe(((result.get('gradcam') or {}).get('organ') or {}).get('label'), 'Organ attention not available')
     _draw_visual_card(canvas, _PDF_MARGIN + card_width + card_gap, top_y, card_width, card_height, title='Grad-CAM: Organ Routing', image_name='ImOrganCam' if has_organ_cam else None, image_spec=images.get('ImOrganCam'), caption=organ_label)
     canvas.y = top_y - card_height - 18
     if has_subtype_cam:
-        subtype_label = _safe((result.get('gradcam') or {}).get('subtype', {}).get('label'), 'Subtype attention not available')
+        subtype_label = _safe(((result.get('gradcam') or {}).get('subtype') or {}).get('label'), 'Subtype attention not available')
         _draw_visual_card(canvas, _PDF_MARGIN, canvas.y, _PDF_CONTENT_WIDTH, 220, title='Grad-CAM: Final Outcome', image_name='ImSubtypeCam', image_spec=images.get('ImSubtypeCam'), caption=subtype_label)
         canvas.y -= 234
 
