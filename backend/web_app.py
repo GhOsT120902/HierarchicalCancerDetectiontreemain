@@ -277,8 +277,8 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         email = str(body.get('email', ''))
         password = str(body.get('password', ''))
-        ok, error = verify_login(email, password)
-        self._send_json({'ok': ok, 'error': error})
+        ok, user_id, error = verify_login(email, password)
+        self._send_json({'ok': ok, 'user_id': user_id, 'error': error})
 
     def _handle_auth_forgot(self) -> None:
         try:
@@ -341,11 +341,11 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         if not id_token:
             self._send_json({'ok': False, 'error': 'id_token is required.'}, status=HTTPStatus.BAD_REQUEST)
             return
-        ok, email, error = verify_google_token(id_token)
+        ok, email, user_id, error = verify_google_token(id_token)
         if not ok:
             self._send_json({'ok': False, 'error': error}, status=HTTPStatus.UNAUTHORIZED)
             return
-        self._send_json({'ok': True, 'email': email})
+        self._send_json({'ok': True, 'email': email, 'user_id': user_id})
 
     def _handle_test_images(self) -> None:
         organs: dict[str, dict] = {}

@@ -60,7 +60,7 @@ export default function AuthScreen({ onLogin }) {
         });
         const data = await res.json();
         if (data.ok) {
-          onLogin(data.email || '');
+          onLogin(data.email || '', data.user_id || '');
         } else {
           setError(data.error || 'Google sign-in failed.');
         }
@@ -95,7 +95,7 @@ export default function AuthScreen({ onLogin }) {
         });
         const data = await res.json();
         if (data.ok) {
-          onLogin(email);
+          onLogin(email, data.user_id || '');
         } else {
           setError(data.error || 'Invalid email or password.');
         }

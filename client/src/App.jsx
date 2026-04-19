@@ -15,15 +15,17 @@ function App() {
     localStorage.setItem('medai_theme', theme);
   }, [theme]);
 
-  const handleLogin = (email) => {
+  const handleLogin = (email, userId) => {
     localStorage.setItem('medai_logged_in', 'true');
     localStorage.setItem('medai_user_email', email);
+    if (userId) localStorage.setItem('medai_user_id', userId);
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('medai_logged_in');
     localStorage.removeItem('medai_user_email');
+    localStorage.removeItem('medai_user_id');
     setIsLoggedIn(false);
   };
 
