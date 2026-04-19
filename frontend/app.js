@@ -556,7 +556,6 @@ function renderStageCard(container, title, stage, formatter) {
     <h3>${escapeHtml(title)}</h3>
     <div class="status-line">
       <span class="status-pill ${tone}"><i class="fa-solid fa-circle-notch"></i> ${escapeHtml(stage.status || "N/A")}</span>
-      <span class="stage-color ${tone}">${escapeHtml(stage.color || "")}</span>
     </div>
     ${formatter(stage)}`;
 }
@@ -648,7 +647,7 @@ function renderResult(result) {
     ${stageMetric("Reason", escapeHtml(stage.reason || "None"))}`);
 
   renderStageCard(tissueCard, "Level 1: Tissue", result.organ_prediction, stage => `
-    ${stageMetric("Label", escapeHtml(stage.selected_label || stage.label || "N/A"))}
+    ${stageMetric("Label", `${escapeHtml(stage.selected_label || stage.label || "N/A")} <span class="status-pill ${toneClass(stage.color, stage.status)}">${escapeHtml(stage.status || "N/A")}</span>`)}
     ${stageMetric("Confidence", formatConfidence(stage.selected_confidence ?? stage.confidence))}
     ${stageMetric("Gap", formatConfidence(stage.confidence_gap))}
     ${stageMetric("Top 2", escapeHtml(`${stage.top2_label || "N/A"} (${formatConfidence(stage.top2_confidence)})`))}` );
@@ -660,7 +659,7 @@ function renderResult(result) {
     ${stageMetric("Entropy", escapeHtml(stage.entropy ?? "N/A"))}`);
 
   renderStageCard(subtypeCard, "Level 3: Subtype", result.subtype_prediction, stage => `
-    ${stageMetric("Label", escapeHtml(stage.interpreted_label || stage.label || "N/A"))}
+    ${stageMetric("Label", `${escapeHtml(stage.interpreted_label || stage.label || "N/A")} <span class="status-pill ${toneClass(stage.color, stage.status)}">${escapeHtml(stage.status || "N/A")}</span>`)}
     ${stageMetric("Confidence", formatConfidence(stage.confidence))}
     ${stageMetric("Gap", formatConfidence(stage.confidence_gap))}
     ${stageMetric("Alternatives", escapeHtml((stage.alternatives || []).join(", ") || "None"))}`);
@@ -790,9 +789,9 @@ if (form) {
             reason: "Demo data: Connect backend server for real analysis.",
             override_used: manualOverride ? manualOverride.checked : false,
             modality: { type: "X-Ray", confidence: 0.95, color: "GREEN", reason: "High confidence detection", confidence_gap: 0.08 },
-            organ_prediction: { label: "Chest", selected_label: organOverride && organOverride.value ? organOverride.value : "Chest", confidence: 0.89, selected_confidence: 0.89, confidence_gap: 0.12, top2_label: "Abdomen", top2_confidence: 0.08 },
+            organ_prediction: { label: "Chest", selected_label: organOverride && organOverride.value ? organOverride.value : "Chest", confidence: 0.89, selected_confidence: 0.89, confidence_gap: 0.12, top2_label: "Abdomen", top2_confidence: 0.08, status: "HIGH_CONFIDENCE", color: "GREEN" },
             normality: { label: "Normal", status: "normal", confidence: 0.92, normal_label: "Normal", entropy: 0.15 },
-            subtype_prediction: { label: "Clear", interpreted_label: "Clear Scan", confidence: 0.88, confidence_gap: 0.10, alternatives: ["Slight Opacity", "Moderate Opacity"] },
+            subtype_prediction: { label: "Clear", interpreted_label: "Clear Scan", confidence: 0.88, confidence_gap: 0.10, alternatives: ["Slight Opacity", "Moderate Opacity"], status: "HIGH_CONFIDENCE", color: "GREEN" },
             charts: {
               organ: { title: "Organ Classification", items: [{ label: "Chest", confidence: 0.89, highlight: true }, { label: "Abdomen", confidence: 0.08 }, { label: "Other", confidence: 0.03 }] },
               subtype: { title: "Subtype Classification", items: [{ label: "Clear Scan", confidence: 0.88, highlight: true }, { label: "Slight Opacity", confidence: 0.10 }, { label: "Moderate Opacity", confidence: 0.02 }] }
