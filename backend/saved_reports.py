@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Lock
 
 DATA_DIR = Path(__file__).resolve().parent.parent / 'data' / 'reports'
-REPORTS_MAX = 200
+REPORTS_MAX = 50
 
 _lock = Lock()
 
@@ -63,7 +63,11 @@ def save_report(
             'final_decision': final_decision,
             'organ': organ,
         })
-        _save_index(email, entries[:REPORTS_MAX])
+        kept = entries[:REPORTS_MAX]
+        evicted = entries[REPORTS_MAX:]
+        for old in evicted:
+            (d / f'{old["report_id"]}.pdf').unlink(missing_ok=True)
+        _save_index(email, kept)
 
 
 def list_reports(email: str) -> list:
