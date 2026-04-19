@@ -290,16 +290,6 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
                 {error}
               </div>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <UploadWorkflow
-                modelStatus={modelStatus}
-                onPredict={handlePredict}
-                isProcessing={isProcessing}
-                result={result}
-                reportId={reportId}
-              />
-              <DiagnosticResults result={result} />
-            </div>
           </>
         );
     }
