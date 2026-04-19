@@ -58,15 +58,16 @@ export default function DiagnosticResults({ result, onExport }) {
   const { modality, organ_prediction, normality, subtype_prediction, charts, gradcam } = result;
 
   return (
-    <div className="card flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6 sticky top-0 bg-[var(--bg-card)] z-10 pb-3 -mx-6 px-6 pt-1">
+    <div className="card flex flex-col">
+      {/* Fixed header — lives outside the scroll area, never moves */}
+      <div className="shrink-0 flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-color)]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <Activity size={18} />
           </div>
           <h2 className="text-lg font-bold">Diagnostic Results</h2>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className={`px-4 py-1.5 rounded-full font-bold text-sm border flex items-center gap-2 ${getToneClass(result.status === 'Abnormal' ? 'red' : 'green')}`}>
             {result.status === 'Abnormal' ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
@@ -93,6 +94,9 @@ export default function DiagnosticResults({ result, onExport }) {
           )}
         </div>
       </div>
+
+      {/* Scrollable content area */}
+      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         {/* Step 0 */}
@@ -213,7 +217,7 @@ export default function DiagnosticResults({ result, onExport }) {
         </div>
       )}
 
-      <div className="mt-auto pt-4 border-t border-[var(--border-color)]">
+      <div className="pt-4 border-t border-[var(--border-color)]">
         <button 
           onClick={() => setShowJson(!showJson)}
           className="flex items-center justify-between w-full p-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-main)] rounded-md transition-colors"
@@ -228,6 +232,8 @@ export default function DiagnosticResults({ result, onExport }) {
           </div>
         )}
       </div>
+
+      </div>{/* end scrollable area */}
     </div>
   );
 }
