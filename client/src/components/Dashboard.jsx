@@ -139,6 +139,12 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
     fetchHealth();
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin && activeTab === 'Model Accuracy') {
+      setActiveTab('Dashboard');
+    }
+  }, [activeTab, isAdmin]);
+
   const fetchHealth = async () => {
     try {
       const res = await fetch('/api/health');
