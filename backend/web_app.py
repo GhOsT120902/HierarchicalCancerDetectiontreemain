@@ -136,18 +136,45 @@ def _get_admin_session_ttl() -> int:
 _ADMIN_SESSION_TTL = _get_admin_session_ttl()
 _admin_sessions: dict[str, float] = {}
 _admin_sessions_lock = threading.Lock()
+_SESSIONS_FILE = PROJECT_ROOT / 'data' / 'admin_sessions.json'
+
+
+def _load_sessions_from_disk() -> None:
+    try:
+        if _SESSIONS_FILE.exists():
+            import json as _json
+            raw = _json.loads(_SESSIONS_FILE.read_text())
+            now = _time.time()
+            valid = {k: v for k, v in raw.items() if isinstance(v, (int, float)) and v > now}
+            _admin_sessions.update(valid)
+    except Exception:
+        pass
+
+
+def _persist_sessions_to_disk() -> None:
+    try:
+        import json as _json
+        _SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _SESSIONS_FILE.write_text(_json.dumps(dict(_admin_sessions)))
+    except Exception:
+        pass
+
+
+_load_sessions_from_disk()
 
 
 def _create_admin_session() -> str:
     token = _secrets.token_urlsafe(32)
     with _admin_sessions_lock:
         _admin_sessions[token] = _time.time() + _ADMIN_SESSION_TTL
+        _persist_sessions_to_disk()
     return token
 
 
 def _delete_admin_session(token: str) -> None:
     with _admin_sessions_lock:
         _admin_sessions.pop(token, None)
+        _persist_sessions_to_disk()
 
 
 def _validate_admin_session(token: str) -> bool:
@@ -159,6 +186,7 @@ def _validate_admin_session(token: str) -> bool:
             return False
         if _time.time() > expiry:
             del _admin_sessions[token]
+            _persist_sessions_to_disk()
             return False
         return True
 
