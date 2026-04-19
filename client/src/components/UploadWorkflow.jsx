@@ -19,12 +19,12 @@ function compressThumbnail(dataUrl, maxW, maxH) {
   });
 }
 
-async function saveHistoryEntry(result, filename, imageDataUrl) {
+async function saveHistoryEntry(result, filename, imageDataUrl, reportId) {
   const email = localStorage.getItem('medai_user_email') || '';
   if (!email || !result) return;
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const thumb = imageDataUrl ? await compressThumbnail(imageDataUrl, 400, 280) : null;
-  const entry = { id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true };
+  const entry = { id, timestamp: Date.now(), filename, thumbnailDataUrl: thumb, result, hasReport: true, ...(reportId ? { report_id: reportId } : {}) };
   try {
     await fetch('/api/history', {
       method: 'POST',
@@ -194,7 +194,7 @@ function TestDataBrowser({ onSelect, onClose }) {
   );
 }
 
-export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, result }) {
+export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, result, reportId }) {
   const [file, setFile] = useState(null);
   const [imageData, setImageData] = useState('');
   const [preview, setPreview] = useState('');
@@ -208,9 +208,9 @@ export default function UploadWorkflow({ modelStatus, onPredict, isProcessing, r
   useEffect(() => {
     if (result && result !== savedResultRef.current && file && imageData) {
       savedResultRef.current = result;
-      saveHistoryEntry(result, file.name, imageData);
+      saveHistoryEntry(result, file.name, imageData, reportId);
     }
-  }, [result, file, imageData]);
+  }, [result, file, imageData, reportId]);
 
   const handleFileChange = (e) => {
     const selected = e.target.files?.[0];

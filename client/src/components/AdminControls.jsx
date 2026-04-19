@@ -357,7 +357,7 @@ export default function AdminControls() {
         <input
           type="text"
           className="input-field pl-9 w-full"
-          placeholder="Search all users by filename, organ type, result, or entry ID..."
+          placeholder="Search by user email, filename, organ, diagnosis or entry ID…"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
         />

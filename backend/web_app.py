@@ -705,11 +705,12 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         for entry in all_entries:
             filename = str(entry.get('filename', '')).lower()
             entry_id = str(entry.get('id', '')).lower()
+            user_email = str(entry.get('_user_email', '')).lower()
             result = entry.get('result') or {}
             organ = str(result.get('organ_prediction', {}).get('selected_label') or result.get('organ_prediction', {}).get('label') or '').lower()
             decision = str(result.get('final_decision', '')).lower()
             subtype = str(result.get('subtype_prediction', {}).get('interpreted_label') or result.get('subtype_prediction', {}).get('label') or '').lower()
-            if q in filename or q in entry_id or q in organ or q in decision or q in subtype:
+            if q in filename or q in entry_id or q in user_email or q in organ or q in decision or q in subtype:
                 matched.append(entry)
         matched.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
         total = len(matched)
