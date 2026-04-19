@@ -184,7 +184,7 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             self._handle_admin_history_search(parsed.query)
             return
         if parsed.path == '/api/admin/history/all':
-            self._handle_admin_history_all()
+            self._handle_admin_history_all(parsed.query)
             return
         if parsed.path.startswith('/api/'):
             self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
@@ -649,13 +649,23 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         else:
             self._send_json({'ok': False, 'error': 'Invalid admin credentials.'}, status=HTTPStatus.UNAUTHORIZED)
 
-    def _handle_admin_history_all(self) -> None:
+    def _handle_admin_history_all(self, query_string: str = '') -> None:
         if not self._is_admin_request():
             self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
             return
+        params = parse_qs(query_string or '')
+        try:
+            offset = max(0, int(params.get('offset', ['0'])[0]))
+        except (ValueError, TypeError):
+            offset = 0
+        try:
+            limit = min(200, max(1, int(params.get('limit', ['50'])[0])))
+        except (ValueError, TypeError):
+            limit = 50
         entries = load_all_history()
         entries.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
-        self._send_json({'ok': True, 'entries': entries})
+        total = len(entries)
+        self._send_json({'ok': True, 'entries': entries[offset:offset + limit], 'total': total, 'offset': offset, 'limit': limit})
 
     def _handle_admin_history_search(self, query_string: str) -> None:
         if not self._is_admin_request():
@@ -663,10 +673,19 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         params = parse_qs(query_string or '')
         q = (params.get('q', [''])[0] or '').strip().lower()
+        try:
+            offset = max(0, int(params.get('offset', ['0'])[0]))
+        except (ValueError, TypeError):
+            offset = 0
+        try:
+            limit = min(200, max(1, int(params.get('limit', ['50'])[0])))
+        except (ValueError, TypeError):
+            limit = 50
         all_entries = load_all_history()
         if not q:
             all_entries.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
-            self._send_json({'ok': True, 'entries': all_entries})
+            total = len(all_entries)
+            self._send_json({'ok': True, 'entries': all_entries[offset:offset + limit], 'total': total, 'offset': offset, 'limit': limit})
             return
         matched = []
         for entry in all_entries:
@@ -679,7 +698,8 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             if q in filename or q in entry_id or q in organ or q in decision or q in subtype:
                 matched.append(entry)
         matched.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
-        self._send_json({'ok': True, 'entries': matched})
+        total = len(matched)
+        self._send_json({'ok': True, 'entries': matched[offset:offset + limit], 'total': total, 'offset': offset, 'limit': limit})
 
     def _handle_admin_history_delete(self) -> None:
         if not self._is_admin_request():

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, Search, Trash2, Edit2, Check, X, RefreshCw, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 function getAdminHeaders() {
   const token = localStorage.getItem('medai_admin_token') || '';
@@ -168,10 +170,22 @@ function AdminEntry({ entry, onDelete, onUpdate }) {
 
 export default function AdminControls() {
   const [entries, setEntries] = useState([]);
+  const [entriesTotal, setEntriesTotal] = useState(0);
+  const [entriesOffset, setEntriesOffset] = useState(0);
+
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchOffset, setSearchOffset] = useState(0);
   const [searching, setSearching] = useState(false);
+
+  const [opError, setOpError] = useState('');
+
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
 
   const handleExpiredToken = useCallback(() => {
     localStorage.removeItem('medai_admin_token');
@@ -182,34 +196,79 @@ export default function AdminControls() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setEntriesOffset(0);
     try {
-      const res = await fetch('/api/admin/history/all', { headers: getAdminHeaders() });
+      const res = await fetch(`/api/admin/history/all?offset=0&limit=${PAGE_SIZE}`, { headers: getAdminHeaders() });
       if (res.status === 401) { handleExpiredToken(); return; }
       const data = await res.json();
-      if (data.ok) setEntries(data.entries || []);
+      if (data.ok) {
+        setEntries(data.entries || []);
+        setEntriesTotal(data.total ?? 0);
+      }
     } catch {}
     setLoading(false);
   }, [handleExpiredToken]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  const loadMoreAll = useCallback(async () => {
+    const nextOffset = entriesOffset + PAGE_SIZE;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/admin/history/all?offset=${nextOffset}&limit=${PAGE_SIZE}`, { headers: getAdminHeaders() });
+      if (res.status === 401) { handleExpiredToken(); return; }
+      const data = await res.json();
+      if (data.ok) {
+        setEntries(prev => [...prev, ...(data.entries || [])]);
+        setEntriesOffset(nextOffset);
+        setEntriesTotal(data.total ?? 0);
+      }
+    } catch {}
+    setLoadingMore(false);
+  }, [entriesOffset, handleExpiredToken]);
+
   useEffect(() => {
     const q = searchQuery.trim();
-    if (!q) { setSearchResults(null); return; }
+    if (!q) {
+      setSearchResults(null);
+      setSearchTotal(0);
+      setSearchOffset(0);
+      return;
+    }
     const timer = setTimeout(async () => {
       setSearching(true);
+      setSearchOffset(0);
       try {
-        const res = await fetch(`/api/admin/history/search?q=${encodeURIComponent(q)}`, { headers: getAdminHeaders() });
+        const res = await fetch(`/api/admin/history/search?q=${encodeURIComponent(q)}&offset=0&limit=${PAGE_SIZE}`, { headers: getAdminHeaders() });
         if (res.status === 401) { handleExpiredToken(); return; }
         const data = await res.json();
-        if (data.ok) setSearchResults(data.entries || []);
+        if (data.ok) {
+          setSearchResults(data.entries || []);
+          setSearchTotal(data.total ?? 0);
+        }
       } catch {}
       setSearching(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, handleExpiredToken]);
 
-  const [opError, setOpError] = useState('');
+  const loadMoreSearch = useCallback(async () => {
+    const q = searchQueryRef.current.trim();
+    if (!q) return;
+    const nextOffset = searchOffset + PAGE_SIZE;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/admin/history/search?q=${encodeURIComponent(q)}&offset=${nextOffset}&limit=${PAGE_SIZE}`, { headers: getAdminHeaders() });
+      if (res.status === 401) { handleExpiredToken(); return; }
+      const data = await res.json();
+      if (data.ok && searchQueryRef.current.trim() === q) {
+        setSearchResults(prev => [...(prev || []), ...(data.entries || [])]);
+        setSearchOffset(nextOffset);
+        setSearchTotal(data.total ?? 0);
+      }
+    } catch {}
+    setLoadingMore(false);
+  }, [searchOffset, handleExpiredToken]);
 
   const handleDelete = async (userEmail, entryId) => {
     if (!window.confirm('Delete this entry? This cannot be undone.')) return;
@@ -224,7 +283,11 @@ export default function AdminControls() {
       const data = await res.json();
       if (data.ok) {
         setEntries(prev => prev.filter(e => !(e._user_email === userEmail && e.id === entryId)));
-        if (searchResults) setSearchResults(prev => prev.filter(e => !(e._user_email === userEmail && e.id === entryId)));
+        setEntriesTotal(prev => Math.max(0, prev - 1));
+        if (searchResults) {
+          setSearchResults(prev => prev.filter(e => !(e._user_email === userEmail && e.id === entryId)));
+          setSearchTotal(prev => Math.max(0, prev - 1));
+        }
       } else {
         setOpError(data.error || 'Failed to delete entry.');
       }
@@ -257,7 +320,10 @@ export default function AdminControls() {
     }
   };
 
-  const displayEntries = searchResults !== null ? searchResults : entries;
+  const isSearchMode = searchResults !== null;
+  const displayEntries = isSearchMode ? searchResults : entries;
+  const displayTotal = isSearchMode ? searchTotal : entriesTotal;
+  const hasMore = displayEntries.length < displayTotal;
 
   return (
     <div className="space-y-6">
@@ -317,7 +383,7 @@ export default function AdminControls() {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-[var(--text-muted)]">
-            {displayEntries.length} {displayEntries.length === 1 ? 'entry' : 'entries'}
+            Showing {displayEntries.length} of {displayTotal} {displayTotal === 1 ? 'entry' : 'entries'}
             {searchQuery.trim() ? ' matching search' : ' across all users'}
           </p>
           {displayEntries.map(entry => (
@@ -328,6 +394,22 @@ export default function AdminControls() {
               onUpdate={handleUpdate}
             />
           ))}
+          {hasMore && (
+            <button
+              onClick={isSearchMode ? loadMoreSearch : loadMoreAll}
+              disabled={loadingMore || searching}
+              className="w-full btn-outline text-sm py-2.5 disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                `Load more (${displayTotal - displayEntries.length} remaining)`
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
