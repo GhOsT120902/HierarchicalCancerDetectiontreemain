@@ -83,3 +83,9 @@ The workflow builds the React app first, then starts the Python server which ser
 - Real user authentication (register, login, forgot password via email)
 - Dark/light theme UI
 - Responsive on desktop and tablet
+
+## Training Script (`scripts/train.py`)
+- `--resume` — resumes training from the best saved checkpoint (restores model, optimizer, scheduler, and epoch)
+- `--drive-backup-dir <path>` — automatically copies the best checkpoint to a Google Drive folder during training (Colab)
+- `--backup-every <N>` — controls how often (in epochs) the Drive backup runs (default: 5)
+- See `scripts/TRAINING_GUIDE.md` for full usage

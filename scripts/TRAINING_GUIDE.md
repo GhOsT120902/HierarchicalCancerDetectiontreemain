@@ -278,6 +278,8 @@ else:
 
 ### Step 6 — Train the organ classifier
 
+The command below enables automatic Drive backups every 5 epochs and supports resuming if the session drops:
+
 ```python
 # Cell 4
 !python scripts/train.py \
@@ -287,8 +289,13 @@ else:
     --freeze-epochs 5 \
     --batch-size 64 \
     --num-workers 2 \
-    --device cuda
+    --device cuda \
+    --drive-backup-dir /content/drive/MyDrive/medai-models \
+    --backup-every 5 \
+    --resume
 ```
+
+> `--resume` is safely ignored on the first run when no checkpoint exists yet. On any subsequent run after a disconnect it automatically picks up from the last best checkpoint.
 
 ### Step 7 — Train the subtype classifier
 
@@ -301,15 +308,18 @@ else:
     --freeze-epochs 5 \
     --batch-size 64 \
     --num-workers 2 \
-    --device cuda
+    --device cuda \
+    --drive-backup-dir /content/drive/MyDrive/medai-models \
+    --backup-every 5 \
+    --resume
 ```
 
 ### Step 8 — Save checkpoints back to Drive
 
-Colab VMs are wiped when the session ends. Save your checkpoints to Drive immediately after training.
+Backups are written to Drive automatically during training via `--drive-backup-dir` (see Steps 6 & 7). If you prefer to copy them manually at the end of the session as well, run:
 
 ```python
-# Cell 6
+# Cell 6 (optional — backups are already on Drive if --drive-backup-dir was used)
 import shutil, os
 
 os.makedirs("/content/drive/MyDrive/medai-models", exist_ok=True)
@@ -356,6 +366,9 @@ Run `python scripts/train.py --help` at any time to see this reference:
 | `--device` | auto | `cuda`, `cpu`, or `mps` (auto-detected if omitted) |
 | `--no-amp` | off | Disable Automatic Mixed Precision (not recommended on GPU) |
 | `--no-weighted-sampler` | off | Disable balanced class sampling |
+| `--drive-backup-dir` | `None` | Google Drive folder to copy the best checkpoint into during training (Colab only) |
+| `--backup-every` | `5` | Copy checkpoint to Drive every N epochs (requires `--drive-backup-dir`) |
+| `--resume` | off | Resume from the best saved checkpoint — restores model, optimizer, scheduler, and epoch count |
 
 ---
 
@@ -500,7 +513,19 @@ If the loss is still NaN, check for corrupt images — though the script pre-val
 
 ### Colab session disconnected mid-training
 
-The checkpoint marked `*` in the output is saved after every improvement. Partial progress is never lost — if the session drops on epoch 22, the epoch 18 checkpoint (for example) is safe in `models/`. Re-run from that checkpoint once reconnected (full resume-from-checkpoint support is planned as a future feature).
+The checkpoint marked `*` in the output is saved after every improvement. If you used `--drive-backup-dir`, the best checkpoint is also copied to Google Drive automatically, so it survives a VM wipe.
+
+To resume after reconnecting, simply re-run the same training command with `--resume` included (it is already part of the recommended commands in Steps 6 and 7). The script will restore the model weights, optimizer, scheduler state, and epoch count, then continue from where it left off.
+
+If the local `models/` checkpoint was lost but your Drive backup is intact, copy it back first:
+
+```python
+import shutil
+shutil.copy("/content/drive/MyDrive/medai-models/resnet50_organ_classifier.pth",
+            "models/resnet50_organ_classifier.pth")
+```
+
+Then run the training command with `--resume`.
 
 ---
 
@@ -510,4 +535,4 @@ Check that `--device cuda` is set and that AMP is active (the banner line should
 
 ---
 
-*Last updated: April 2026*
+*Last updated: April 2026 — added `--resume`, `--drive-backup-dir`, and `--backup-every` flags*
