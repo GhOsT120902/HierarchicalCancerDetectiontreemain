@@ -12,14 +12,18 @@ function formatRelativeDate(ts) {
 function HistoryEntry({ entry, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   const decision = entry.result?.final_decision || 'Unknown result';
   const organ = entry.result?.organ_prediction?.selected_label || entry.result?.organ_prediction?.label || '';
   const subtype = entry.result?.subtype_prediction?.interpreted_label || entry.result?.subtype_prediction?.label || '';
   const summary = [organ, subtype].filter(Boolean).join(' › ') || decision;
 
+  const hasResult = Boolean(entry.result);
+
   const handleDownloadReport = async () => {
-    if (!entry.result) return;
+    if (!hasResult || downloading) return;
+    setExportError(null);
     setDownloading(true);
     try {
       const resp = await fetch('/api/report', {
@@ -31,7 +35,14 @@ function HistoryEntry({ entry, onDelete }) {
           image_data: entry.thumbnailDataUrl || null,
         }),
       });
-      if (!resp.ok) throw new Error('Report generation failed.');
+      if (!resp.ok) {
+        let message = 'Report generation failed.';
+        try {
+          const errBody = await resp.json();
+          if (errBody?.error) message = errBody.error;
+        } catch {}
+        throw new Error(message);
+      }
       const blob = await resp.blob();
       const disposition = resp.headers.get('Content-Disposition') || '';
       const nameMatch = disposition.match(/filename="?([^";\n]+)"?/i);
@@ -42,7 +53,8 @@ function HistoryEntry({ entry, onDelete }) {
       a.download = dlName;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      setExportError(err?.message || 'Export failed. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -82,9 +94,9 @@ function HistoryEntry({ entry, onDelete }) {
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={handleDownloadReport}
-            disabled={downloading}
+            disabled={downloading || !hasResult}
             className="btn-outline text-xs py-1.5 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download PDF report"
+            title={!hasResult ? 'No result data available for this entry' : 'Download PDF report'}
           >
             {downloading ? (
               <span className="flex items-center gap-1.5">
@@ -94,7 +106,7 @@ function HistoryEntry({ entry, onDelete }) {
             ) : (
               <span className="flex items-center gap-1.5">
                 <FileText size={14} />
-                Report
+                Export PDF
               </span>
             )}
           </button>
@@ -116,6 +128,20 @@ function HistoryEntry({ entry, onDelete }) {
           </button>
         </div>
       </div>
+
+      {exportError && (
+        <div className="px-4 pb-3 flex items-center gap-2 text-xs text-red-400">
+          <span className="flex-shrink-0">&#9888;</span>
+          <span>{exportError}</span>
+          <button
+            onClick={() => setExportError(null)}
+            className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-main)]"
+            title="Dismiss"
+          >
+            &#10005;
+          </button>
+        </div>
+      )}
 
       {expanded && (
         <div className="px-4 pb-4 border-t border-[var(--border-color)] pt-3 space-y-2 text-sm">
