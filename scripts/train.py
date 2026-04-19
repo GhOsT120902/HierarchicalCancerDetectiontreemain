@@ -448,6 +448,11 @@ def save_checkpoint(
     num_classes:  int,
     label_to_idx: dict[str, int],
     output_path:  Path,
+    *,
+    optimizer=None,
+    scheduler=None,
+    epoch: int | None = None,
+    best_val_acc: float | None = None,
 ) -> None:
     idx_key    = "organ_to_idx" if target == "organ" else "subtype_to_idx"
     checkpoint = {
@@ -456,6 +461,14 @@ def save_checkpoint(
         "target":           target,
         idx_key:            label_to_idx,
     }
+    if optimizer is not None:
+        checkpoint["optimizer_state_dict"] = optimizer.state_dict()
+    if scheduler is not None:
+        checkpoint["scheduler_state_dict"] = scheduler.state_dict()
+    if epoch is not None:
+        checkpoint["epoch"] = epoch
+    if best_val_acc is not None:
+        checkpoint["best_val_acc"] = best_val_acc
     torch.save(checkpoint, output_path)
     print(f"  Checkpoint saved → {output_path}")
 
@@ -497,6 +510,10 @@ def main() -> None:
                         help="(Colab) Google Drive folder to copy the best checkpoint into during training.")
     parser.add_argument("--backup-every", type=int, default=5,
                         help="Copy the best checkpoint to --drive-backup-dir every N epochs (default: 5).")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume training from the best-validation checkpoint in --output-dir. "
+                             "Note: restores the epoch/optimizer/scheduler state saved at the best "
+                             "val-acc point, not necessarily the very last completed epoch.")
     args = parser.parse_args()
 
     # ── Validation ────────────────────────────────────────────────────────────
@@ -558,6 +575,8 @@ def main() -> None:
     print(f"  Output dir       : {args.output_dir}")
     if args.drive_backup_dir:
         print(f"  Drive backup dir : {args.drive_backup_dir}  (every {args.backup_every} epochs)")
+    if args.resume:
+        print(f"  Resume           : yes (will load {best_ckpt_name} if found)")
     print()
 
     # ── Dataset ───────────────────────────────────────────────────────────────
@@ -630,9 +649,37 @@ def main() -> None:
     )
 
     best_val_acc  = -1.0
+    start_epoch   = 0
     best_ckpt_path  = args.output_dir / best_ckpt_name
     final_ckpt_path = args.output_dir / final_ckpt_name
     new_best_since_last_backup = False
+
+    # ── Resume ────────────────────────────────────────────────────────────────
+    if args.resume:
+        if best_ckpt_path.exists():
+            print(f"  Resuming from checkpoint: {best_ckpt_path}")
+            ckpt = torch.load(best_ckpt_path, map_location=device)
+            model.load_state_dict(ckpt["model_state_dict"])
+            saved_epoch = ckpt.get("epoch", 0)
+            if saved_epoch > args.freeze_epochs:
+                unfreeze_top_layers(model)
+                optimizer = make_optimizer(phase=2)
+                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode="min", factor=0.5, patience=3,
+                )
+                print(f"  [Resume] Restored Phase 2 (backbone lr={args.lr_backbone:.0e})")
+            if "optimizer_state_dict" in ckpt:
+                optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+            if "scheduler_state_dict" in ckpt:
+                scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+            best_val_acc = ckpt.get("best_val_acc", -1.0)
+            start_epoch  = saved_epoch
+            print(f"  Resumed at epoch {start_epoch}, best val acc so far: {best_val_acc:.2%}")
+            print()
+        else:
+            print(f"  WARNING: --resume given but no checkpoint found at {best_ckpt_path}. "
+                  f"Starting from scratch.")
+            print()
 
     header = (
         f"{'Epoch':>6}  {'Phase':>6}  {'LR(head)':>10}  "
@@ -641,7 +688,7 @@ def main() -> None:
     print(header)
     print("-" * len(header))
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch + 1, args.epochs + 1):
 
         # ── Phase transition ──────────────────────────────────────────────────
         if epoch == args.freeze_epochs + 1:
@@ -673,7 +720,11 @@ def main() -> None:
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_checkpoint(model, args.target, num_classes, label_to_idx, best_ckpt_path)
+            save_checkpoint(
+                model, args.target, num_classes, label_to_idx, best_ckpt_path,
+                optimizer=optimizer, scheduler=scheduler,
+                epoch=epoch, best_val_acc=best_val_acc,
+            )
             new_best_since_last_backup = True
 
         if args.drive_backup_dir and epoch % args.backup_every == 0 and new_best_since_last_backup:
