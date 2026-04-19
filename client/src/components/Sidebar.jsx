@@ -17,7 +17,7 @@ export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setAc
 
   return (
     <aside
-      className="w-64 flex-shrink-0 flex flex-col"
+      className="w-64 flex-shrink-0 flex flex-col h-full overflow-hidden"
       style={{
         backgroundColor: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--sidebar-border)',
