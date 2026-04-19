@@ -80,14 +80,29 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
             scope_label = f'organ "{organ_filter}"' if organ_filter else 'all organs'
 
         log(f'Loading test images ({scope_label})...')
+        log(f'Scanning directory: {test_data_dir}')
+        try:
+            top_items = sorted(test_data_dir.iterdir())
+            dirs_found = [p.name for p in top_items if p.is_dir()]
+            log(f'Top-level folders found: {dirs_found if dirs_found else "(none)"}')
+            for organ_dir in [p for p in top_items if p.is_dir()]:
+                sub_items = sorted(organ_dir.iterdir())
+                sub_dirs = [p.name for p in sub_items if p.is_dir()]
+                images_direct = [p.name for p in sub_items if p.is_file() and p.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}]
+                if sub_dirs:
+                    log(f'  {organ_dir.name}/ → subtypes: {sub_dirs}')
+                elif images_direct:
+                    log(f'  {organ_dir.name}/ → images directly (missing subtype folder): {images_direct[:3]}...')
+        except Exception as scan_exc:
+            log(f'  (could not scan directory: {scan_exc})')
         entries = collect_image_paths(test_data_dir, logger=logger, organ_filter=organ_filter or None)
         if len(entries) == 0:
             expected = (
-                'No images found. Your ZIP must follow this folder structure:\n'
-                '  OrganFolder/subtype_folder/image.jpg\n'
+                'No images found. Check the folders listed above match expected names.\n'
                 'Valid organ folders: ALL, Brain Cancer, Breast Cancer, Cervical Cancer, '
                 'Kidney Cancer, Lung and Colon Cancer, Lymphoma, Oral Cancer\n'
-                'Valid subtype folders (examples): brain_glioma, breast_malignant, lung_aca, kidney_tumor, etc.'
+                'Valid subtype folders (examples): brain_glioma, breast_malignant, lung_aca, kidney_tumor, etc.\n'
+                'Required structure: OrganFolder/subtype_folder/image.jpg'
             )
             with server._eval_lock:
                 server._eval_status = 'error'
