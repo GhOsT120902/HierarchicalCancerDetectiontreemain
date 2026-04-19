@@ -184,13 +184,18 @@ export default function ModelAccuracy() {
     'X-Admin-Token': localStorage.getItem('medai_admin_token') || '',
   });
 
+  const handleExpiredToken = useCallback(() => {
+    localStorage.removeItem('medai_admin_token');
+    localStorage.removeItem('medai_is_admin');
+    localStorage.removeItem('medai_logged_in');
+    window.location.reload();
+  }, []);
+
   const pollStatus = useCallback(async () => {
     try {
       const res  = await fetch('/api/evaluate', { headers: adminHeaders() });
       if (res.status === 401) {
-        setStatus('error');
-        setEvalError('Admin access required to view evaluation status.');
-        pollRef.current = null;
+        handleExpiredToken();
         return;
       }
       const data = await res.json();
@@ -203,7 +208,7 @@ export default function ModelAccuracy() {
     } catch (_) {
       pollRef.current = setTimeout(pollStatus, 4000);
     }
-  }, [applyState]);
+  }, [applyState, handleExpiredToken]);
 
   useEffect(() => {
     pollStatus();
@@ -228,8 +233,7 @@ export default function ModelAccuracy() {
         body:    JSON.stringify({ organ_filter: organFilter || null }),
       });
       if (res.status === 401) {
-        setStatus('error');
-        setEvalError('Admin access required to run evaluation.');
+        handleExpiredToken();
         return;
       }
       const data = await res.json();
@@ -259,9 +263,7 @@ export default function ModelAccuracy() {
       const buf  = await zipFile.arrayBuffer();
       const res  = await fetch('/api/evaluate/upload', { method: 'POST', headers, body: buf });
       if (res.status === 401) {
-        setStatus('error');
-        setEvalError('Admin access required to upload and run evaluation.');
-        setIsUploading(false);
+        handleExpiredToken();
         return;
       }
       const data = await res.json();
