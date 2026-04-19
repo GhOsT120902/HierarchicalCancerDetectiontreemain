@@ -5,6 +5,7 @@ export default function HeroSection({ modelStatus, onUploadClick }) {
 
   return (
     <div
+      data-tour="hero-section"
       className="rounded-xl shadow-sm p-5 relative overflow-hidden text-white"
       style={{ background: 'linear-gradient(to bottom right, var(--bg-hero-from), var(--bg-hero-to))' }}
     >

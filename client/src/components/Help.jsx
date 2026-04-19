@@ -71,7 +71,7 @@ function PipelineLevel({ level, label, icon: Icon, color, desc, examples }) {
 
 export default function Help() {
   return (
-    <div className="max-w-3xl space-y-6">
+    <div data-tour="help-panel" className="max-w-3xl space-y-6">
 
       {/* Header */}
       <div className="card bg-gradient-to-r from-cyan-500/10 to-transparent border-cyan-500/20">

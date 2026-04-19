@@ -188,6 +188,7 @@ function HistoryEntry({ entry, onDelete }) {
 }
 
 export default function HistoryPanel() {
+  const isDemoMode = localStorage.getItem('medai_demo_mode') === 'true';
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
@@ -196,7 +197,7 @@ export default function HistoryPanel() {
   const userEmail = localStorage.getItem('medai_user_email') || '';
 
   const migrateLocalHistory = useCallback(async () => {
-    if (!userEmail) return;
+    if (!userEmail || isDemoMode) return;
     const localKey = `medai_history_${userEmail}`;
     const raw = localStorage.getItem(localKey);
     if (!raw) return;
@@ -214,9 +215,15 @@ export default function HistoryPanel() {
       localStorage.removeItem(localKey);
     } catch {
     }
-  }, [userEmail]);
+  }, [userEmail, isDemoMode]);
 
   const fetchEntries = useCallback(async () => {
+    if (isDemoMode) {
+      const { DEMO_HISTORY } = await import('../demoData');
+      setEntries(DEMO_HISTORY);
+      setLoading(false);
+      return;
+    }
     if (!userEmail) { setLoading(false); return; }
     setLoading(true);
     try {
@@ -230,7 +237,7 @@ export default function HistoryPanel() {
     } finally {
       setLoading(false);
     }
-  }, [userEmail]);
+  }, [userEmail, isDemoMode]);
 
   useEffect(() => {
     migrateLocalHistory().then(() => fetchEntries());
@@ -238,6 +245,7 @@ export default function HistoryPanel() {
 
   const handleDelete = async (id) => {
     setEntries(prev => prev.filter(e => e.id !== id));
+    if (isDemoMode) return;
     try {
       await fetch('/api/history/delete', {
         method: 'POST',
@@ -251,6 +259,11 @@ export default function HistoryPanel() {
   const handleClearAll = async () => {
     if (!window.confirm('Clear all history? This cannot be undone.')) return;
     setClearing(true);
+    if (isDemoMode) {
+      setEntries([]);
+      setClearing(false);
+      return;
+    }
     try {
       await fetch('/api/history/clear', {
         method: 'POST',
@@ -278,7 +291,7 @@ export default function HistoryPanel() {
     : entries;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="history-panel" className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">

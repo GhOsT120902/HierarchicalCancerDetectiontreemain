@@ -151,7 +151,69 @@ function StatusBadge({ status }) {
   }
 }
 
+function ModelAccuracyDemo() {
+  const levels = [
+    { label: 'Level 1 — Organ Routing', accuracy: 94.2, precision: 93.8, recall: 94.7, f1: 94.2 },
+    { label: 'Level 2 — Normality',     accuracy: 91.5, precision: 90.9, recall: 92.1, f1: 91.5 },
+    { label: 'Level 3 — Cancer Subtype',accuracy: 87.3, precision: 86.8, recall: 87.9, f1: 87.3 },
+  ];
+  const bar = (pct) => (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-[var(--bg-main)] overflow-hidden">
+        <div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs font-semibold text-[var(--text-main)] w-10 text-right">{pct}%</span>
+    </div>
+  );
+  return (
+    <div data-tour="model-accuracy" className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
+          <FlaskConical size={18} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-[var(--text-main)]">Model Accuracy Evaluation</h2>
+          <p className="text-xs text-[var(--text-muted)]">Benchmark results against the full test dataset</p>
+        </div>
+        <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 font-semibold">Demo Preview</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        {[{ label:'Total Images', value:'2,847' }, { label:'Last Run', value:'2 days ago' }, { label:'Pipeline', value:'4-Stage AI' }].map(s => (
+          <div key={s.label} className="card text-center py-4">
+            <div className="text-xl font-bold text-[var(--text-main)]">{s.value}</div>
+            <div className="text-xs text-[var(--text-muted)] mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-4">
+        {levels.map((lv) => (
+          <div key={lv.label} className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--text-main)]">{lv.label}</h3>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 font-semibold">Accuracy {lv.accuracy}%</span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3"><span className="text-xs text-[var(--text-muted)] w-20">Accuracy</span>{bar(lv.accuracy)}</div>
+              <div className="flex items-center gap-3"><span className="text-xs text-[var(--text-muted)] w-20">Precision</span>{bar(lv.precision)}</div>
+              <div className="flex items-center gap-3"><span className="text-xs text-[var(--text-muted)] w-20">Recall</span>{bar(lv.recall)}</div>
+              <div className="flex items-center gap-3"><span className="text-xs text-[var(--text-muted)] w-20">F1 Score</span>{bar(lv.f1)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-center text-[var(--text-muted)] opacity-60 italic">
+        Demo view — run a real evaluation to generate live metrics
+      </p>
+    </div>
+  );
+}
+
 export default function ModelAccuracy() {
+  if (localStorage.getItem('medai_demo_mode') === 'true') return <ModelAccuracyDemo />;
+
   const [status,      setStatus]      = useState('idle');
   const [metrics,     setMetrics]     = useState(null);
   const [log,         setLog]         = useState([]);
@@ -371,7 +433,7 @@ export default function ModelAccuracy() {
   };
 
   return (
-    <div className="space-y-6">
+    <div data-tour="model-accuracy" className="space-y-6">
 
       {/* ── Header ── */}
       <div className="card">

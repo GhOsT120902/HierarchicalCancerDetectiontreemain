@@ -7,8 +7,10 @@ import UploadWorkflow from './UploadWorkflow';
 import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
 import ReportsPanel from './ReportsPanel';
+import HistoryPanel from './HistoryPanel';
 import AdminControls from './AdminControls';
 import Help from './Help';
+import { DEMO_RESULT } from '../demoData';
 
 function SettingsPanel() {
   const [currentPw, setCurrentPw] = useState('');
@@ -47,7 +49,7 @@ function SettingsPanel() {
   };
 
   return (
-    <div className="max-w-lg space-y-6">
+    <div data-tour="settings-panel" className="max-w-lg space-y-6">
       <div className="card">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
@@ -137,9 +139,11 @@ function isPipelineBlockedEarly(result) {
   return false;
 }
 
-export default function Dashboard({ onLogout, theme, toggleTheme }) {
+export default function Dashboard({ onLogout, theme, toggleTheme, onRegisterTabChanger }) {
+  const isDemoMode = localStorage.getItem('medai_demo_mode') === 'true';
+
   const [modelStatus, setModelStatus] = useState(null);
-  const [result, setResult]           = useState(null);
+  const [result, setResult]           = useState(() => isDemoMode ? DEMO_RESULT : null);
   const [reportId, setReportId]       = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError]             = useState(null);
@@ -153,11 +157,20 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const isAdmin = localStorage.getItem('medai_is_admin') === 'true';
 
   useEffect(() => {
+    if (onRegisterTabChanger) {
+      onRegisterTabChanger(setActiveTab);
+    }
+  }, [onRegisterTabChanger]);
+
+  useEffect(() => {
     fetchHealth();
   }, []);
 
   useEffect(() => {
     if (!isAdmin && activeTab === 'Model Accuracy') {
+      setActiveTab('Dashboard');
+    }
+    if (!isAdmin && activeTab === 'Admin Controls') {
       setActiveTab('Dashboard');
     }
   }, [activeTab, isAdmin]);
@@ -177,6 +190,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   };
 
   const handlePredict = useCallback(async (payload) => {
+    if (isDemoMode) return;
     const isAutoRetry = payload._autoRetry === true;
     if (!isAutoRetry) {
       autoRetryDoneRef.current = false;
@@ -224,7 +238,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [isDemoMode]);
 
   const handleExport = useCallback(async () => {
     if (!result || !exportData) return;
@@ -306,6 +320,9 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       case 'Reports':
         return <ReportsPanel />;
 
+      case 'History':
+        return <HistoryPanel />;
+
       case 'Model Accuracy':
         return isAdmin ? <ModelAccuracy /> : null;
 
@@ -365,6 +382,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
           onMenuClick={() => setSidebarOpen(o => !o)}
           onSettingsClick={() => setActiveTab('Settings')}
           onLogout={onLogout}
+          isDemoMode={isDemoMode}
         />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">

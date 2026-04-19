@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check, Shield, Eye, EyeOff } from 'lucide-react';
+import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check, Shield, Eye, EyeOff, Play, X } from 'lucide-react';
 
-export default function AuthScreen({ onLogin }) {
+export default function AuthScreen({ onLogin, onDemoLogin }) {
   const [view, setView] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,7 +12,20 @@ export default function AuthScreen({ onLogin }) {
   const [message, setMessage] = useState('');
   const [showDoctorPassword, setShowDoctorPassword] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [showFirstVisitBanner, setShowFirstVisitBanner] = useState(false);
   const googleBtnRef = useRef(null);
+
+  useEffect(() => {
+    const visited = localStorage.getItem('medai_visited');
+    if (!visited) {
+      setShowFirstVisitBanner(true);
+    }
+  }, []);
+
+  const dismissBanner = () => {
+    localStorage.setItem('medai_visited', 'true');
+    setShowFirstVisitBanner(false);
+  };
 
   useEffect(() => {
     let scriptEl = null;
@@ -175,10 +188,49 @@ export default function AuthScreen({ onLogin }) {
     setShowAdminPassword(false);
   };
 
+  const handleTryDemo = () => {
+    localStorage.setItem('medai_visited', 'true');
+    setShowFirstVisitBanner(false);
+    onDemoLogin?.();
+  };
+
   const isAdminView = view === 'admin';
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
+    <div className="flex-1 flex items-center justify-center p-4 relative">
+      {showFirstVisitBanner && view === 'login' && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
+          <div
+            className="rounded-xl border border-cyan-500/40 shadow-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2"
+            style={{ backgroundColor: 'var(--bg-card)' }}
+          >
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500 shrink-0 mt-0.5">
+              <Play size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-[var(--text-main)] mb-0.5">Welcome to MedAI</p>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                First time here? Try the interactive demo to explore every feature with a guided tour — no account needed.
+              </p>
+              <button
+                onClick={handleTryDemo}
+                className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-cyan-500 hover:text-cyan-400 transition-colors"
+              >
+                <Play size={12} />
+                Launch Demo Tour
+              </button>
+            </div>
+            <button
+              onClick={dismissBanner}
+              className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-0.5 shrink-0"
+              aria-label="Dismiss"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isAdminView ? 'bg-amber-500/10 text-amber-500' : 'bg-cyan-500/10 text-cyan-500'}`}>
@@ -196,7 +248,7 @@ export default function AuthScreen({ onLogin }) {
         {error && <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-md mb-4 text-sm">{error}</div>}
         {message && <div className="bg-green-500/10 border border-green-500/50 text-green-500 p-3 rounded-md mb-4 text-sm">{message}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form data-tour="signin-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium">Email Address</label>
             <div className="relative">
@@ -228,6 +280,7 @@ export default function AuthScreen({ onLogin }) {
                 {view === 'login' && (
                   <button
                     type="button"
+                    data-tour="password-toggle"
                     onClick={() => setShowDoctorPassword(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     aria-label={showDoctorPassword ? 'Hide password' : 'Show password'}
@@ -308,7 +361,7 @@ export default function AuthScreen({ onLogin }) {
               <span className="px-3 text-xs text-[var(--text-muted)]">or</span>
               <div className="flex-1 border-t" style={{ borderColor: 'var(--border-color)' }}></div>
             </div>
-            <div ref={googleBtnRef} className="flex justify-center min-h-[44px]">
+            <div data-tour="google-signin" ref={googleBtnRef} className="flex justify-center min-h-[44px]">
               <span className="text-xs text-[var(--text-muted)] self-center">Loading Google Sign-In…</span>
             </div>
           </div>
@@ -318,11 +371,12 @@ export default function AuthScreen({ onLogin }) {
           {view === 'login' ? (
             <div className="space-y-2">
               <div>
-                <button onClick={() => switchView('forgot')} className="text-cyan-500 hover:underline mr-4">Forgot Password?</button>
-                <button onClick={() => switchView('register')} className="text-cyan-500 hover:underline">Create Account</button>
+                <button data-tour="forgot-password" onClick={() => switchView('forgot')} className="text-cyan-500 hover:underline mr-4">Forgot Password?</button>
+                <button data-tour="create-account" onClick={() => switchView('register')} className="text-cyan-500 hover:underline">Create Account</button>
               </div>
               <div>
                 <button
+                  data-tour="admin-login"
                   onClick={() => switchView('admin')}
                   className="text-amber-500 hover:underline text-xs flex items-center gap-1 mx-auto"
                 >
@@ -337,6 +391,21 @@ export default function AuthScreen({ onLogin }) {
             </button>
           )}
         </div>
+
+        {view === 'login' && (
+          <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--border-color)' }}>
+            <button
+              onClick={handleTryDemo}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold border-2 border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10 hover:border-cyan-500 transition-all"
+            >
+              <Play size={16} />
+              Try Demo — Full Guided Tour
+            </button>
+            <p className="text-center text-xs text-[var(--text-muted)] mt-2">
+              Explore every feature with an interactive walkthrough. No account needed.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

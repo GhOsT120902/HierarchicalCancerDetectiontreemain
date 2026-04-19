@@ -168,7 +168,69 @@ function AdminEntry({ entry, onDelete, onUpdate }) {
   );
 }
 
+function AdminControlsDemo() {
+  const rows = [
+    { email: 'dr.smith@hospital.org',   file: 'brain_mri_001.jpg',     diagnosis: 'Malignant Glioma',          time: '2 hours ago' },
+    { email: 'dr.patel@clinic.com',     file: 'breast_hist_034.png',   diagnosis: 'Invasive Ductal Carcinoma', time: '5 hours ago' },
+    { email: 'nurse.chen@medcenter.io', file: 'lung_ct_scan_012.jpg',  diagnosis: 'Lung Adenocarcinoma',       time: '1 day ago' },
+    { email: 'admin@hospital.org',      file: 'cervical_pap_007.jpg',  diagnosis: 'Normal',                    time: '2 days ago' },
+  ];
+  return (
+    <div data-tour="admin-controls" className="space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+          <Shield size={18} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-[var(--text-main)]">Admin Controls</h2>
+          <p className="text-xs text-[var(--text-muted)]">Manage all users' history entries</p>
+        </div>
+        <span className="ml-auto text-xs px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 font-semibold">Demo Preview</span>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={15} />
+        <input readOnly value="Search by email, filename, diagnosis…" className="input-field pl-9 w-full opacity-50 cursor-default" />
+      </div>
+
+      <div className="card overflow-hidden p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+              <th className="text-left px-4 py-2.5 text-xs text-[var(--text-muted)] font-semibold">User</th>
+              <th className="text-left px-4 py-2.5 text-xs text-[var(--text-muted)] font-semibold">File</th>
+              <th className="text-left px-4 py-2.5 text-xs text-[var(--text-muted)] font-semibold">Diagnosis</th>
+              <th className="text-left px-4 py-2.5 text-xs text-[var(--text-muted)] font-semibold">When</th>
+              <th className="px-4 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b border-[var(--border-color)] last:border-0">
+                <td className="px-4 py-3 text-xs text-[var(--text-muted)] font-mono">{r.email}</td>
+                <td className="px-4 py-3 text-xs text-[var(--text-main)]">{r.file}</td>
+                <td className="px-4 py-3 text-xs text-cyan-400 font-medium">{r.diagnosis}</td>
+                <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{r.time}</td>
+                <td className="px-4 py-3 flex gap-2 justify-end">
+                  <button className="p-1.5 rounded text-[var(--text-muted)] hover:text-cyan-400 transition-colors opacity-40 cursor-default"><Edit2 size={13} /></button>
+                  <button className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 transition-colors opacity-40 cursor-default"><Trash2 size={13} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-center text-[var(--text-muted)] opacity-60 italic">
+        Demo view — live data requires a real admin session
+      </p>
+    </div>
+  );
+}
+
 export default function AdminControls() {
+  if (localStorage.getItem('medai_demo_mode') === 'true') return <AdminControlsDemo />;
+
   const [entries, setEntries] = useState([]);
   const [entriesTotal, setEntriesTotal] = useState(0);
   const [entriesOffset, setEntriesOffset] = useState(0);
@@ -326,7 +388,7 @@ export default function AdminControls() {
   const hasMore = displayEntries.length < displayTotal;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="admin-controls" className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
           <Shield size={18} />

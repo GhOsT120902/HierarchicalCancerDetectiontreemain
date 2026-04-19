@@ -36,7 +36,7 @@ export default function DiagnosticResults({ result, onExport }) {
 
   if (!result) {
     return (
-      <div className="card flex flex-col h-full">
+      <div data-tour="diagnostic-results" className="card flex flex-col h-full">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">
             <Activity size={18} />
@@ -58,7 +58,7 @@ export default function DiagnosticResults({ result, onExport }) {
   const { modality, organ_prediction, normality, subtype_prediction, charts, gradcam } = result;
 
   return (
-    <div className="card flex flex-col">
+    <div data-tour="diagnostic-results" className="card flex flex-col">
       <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-color)]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">

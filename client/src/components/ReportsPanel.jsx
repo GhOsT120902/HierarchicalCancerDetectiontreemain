@@ -18,13 +18,46 @@ function groupByDate(reports) {
   }, {});
 }
 
+const DEMO_REPORTS = [
+  {
+    report_id: 'demo_rpt_001',
+    filename: 'brain_glioma_sample_01.jpg',
+    timestamp: Date.now() - 2 * 24 * 3600 * 1000,
+    status: 'complete',
+    final_decision: 'Malignant — Glioma',
+    organ: 'Brain Cancer',
+  },
+  {
+    report_id: 'demo_rpt_002',
+    filename: 'breast_malignant_biopsy_042.png',
+    timestamp: Date.now() - 24 * 3600 * 1000,
+    status: 'complete',
+    final_decision: 'Malignant — Breast Malignant',
+    organ: 'Breast Cancer',
+  },
+  {
+    report_id: 'demo_rpt_003',
+    filename: 'cervical_normal_tissue_003.png',
+    timestamp: Date.now() - 2 * 3600 * 1000,
+    status: 'complete',
+    final_decision: 'Normal — No abnormality detected',
+    organ: 'Cervical Cancer',
+  },
+];
+
 export default function ReportsPanel() {
+  const isDemoMode = localStorage.getItem('medai_demo_mode') === 'true';
   const [reports, setReports]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [downloading, setDownloading] = useState(null);
   const email = localStorage.getItem('medai_user_email') || '';
 
   const fetchReports = async () => {
+    if (isDemoMode) {
+      setReports(DEMO_REPORTS);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res  = await fetch('/api/reports', { headers: { 'X-User-Email': email } });
@@ -37,6 +70,7 @@ export default function ReportsPanel() {
   useEffect(() => { fetchReports(); }, []);
 
   const handleDownload = async (report) => {
+    if (isDemoMode) return;
     setDownloading(report.report_id);
     try {
       const res = await fetch(`/api/reports/download?id=${encodeURIComponent(report.report_id)}`, {
@@ -71,7 +105,7 @@ export default function ReportsPanel() {
   const grouped = groupByDate(reports);
 
   return (
-    <div className="card">
+    <div data-tour="reports-panel" className="card">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500">

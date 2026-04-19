@@ -1,7 +1,7 @@
-import { Menu, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, Settings, LogOut, ChevronDown, FlaskConical } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
-export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogout }) {
+export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogout, isDemoMode }) {
   const initial = userEmail ? userEmail.charAt(0).toUpperCase() : 'D';
   const name = userEmail ? userEmail.split('@')[0] : 'Doctor';
   const [open, setOpen] = useState(false);
@@ -19,7 +19,7 @@ export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogo
 
   return (
     <header className="h-16 border-b flex items-center justify-between px-6 bg-[var(--bg-card)] border-[var(--border-color)]">
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
           className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors p-1 rounded-md hover:bg-[var(--bg-main)]"
@@ -27,6 +27,12 @@ export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogo
         >
           <Menu size={22} />
         </button>
+        {isDemoMode && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30">
+            <FlaskConical size={13} className="text-cyan-500" />
+            <span className="text-xs font-bold text-cyan-500 tracking-wide">Demo Mode</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-6">
@@ -35,7 +41,6 @@ export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogo
           <span className="text-xs font-medium text-green-600 dark:text-green-400">System Active</span>
         </div>
 
-        {/* User avatar + dropdown */}
         <div className="relative border-l border-[var(--border-color)] pl-6" ref={dropdownRef}>
           <button
             onClick={() => setOpen(v => !v)}
@@ -43,7 +48,7 @@ export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogo
           >
             <div className="text-right hidden md:block">
               <div className="text-sm font-medium text-[var(--text-main)] capitalize leading-tight">{name}</div>
-              <div className="text-xs text-[var(--text-muted)]">Oncologist</div>
+              <div className="text-xs text-[var(--text-muted)]">{isDemoMode ? 'Demo Account' : 'Oncologist'}</div>
             </div>
             <div className="w-9 h-9 rounded-full bg-cyan-500 flex items-center justify-center text-slate-900 font-bold shadow-sm shrink-0">
               {initial}
@@ -69,7 +74,7 @@ export default function Header({ userEmail, onMenuClick, onSettingsClick, onLogo
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-[var(--bg-main)] transition-colors"
               >
                 <LogOut size={15} />
-                Logout
+                {isDemoMode ? 'Exit Demo' : 'Logout'}
               </button>
             </div>
           )}
