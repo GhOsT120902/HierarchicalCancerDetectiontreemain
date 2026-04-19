@@ -6,12 +6,12 @@ export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setAc
     { name: 'Upload Scan',    icon: UploadIcon },
     { name: 'Results',        icon: BarChart2 },
     { name: 'Reports',        icon: FileText },
-    { name: 'Model Accuracy', icon: FlaskConical },
     { name: 'History',        icon: History },
     { name: 'Settings',       icon: Settings },
   ];
 
   if (isAdmin) {
+    navItems.push({ name: 'Model Accuracy', icon: FlaskConical });
     navItems.push({ name: 'Admin Controls', icon: Shield });
   }
 

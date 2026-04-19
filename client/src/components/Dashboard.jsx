@@ -261,7 +261,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
         return <ReportsPanel />;
 
       case 'Model Accuracy':
-        return <ModelAccuracy />;
+        return isAdmin ? <ModelAccuracy /> : null;
 
       case 'History':
         return <HistoryPanel />;
