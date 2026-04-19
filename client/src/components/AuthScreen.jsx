@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check } from 'lucide-react';
+import { Activity, Mail, Lock, KeyRound, UserPlus, LogIn, Check, Shield } from 'lucide-react';
 
 export default function AuthScreen({ onLogin }) {
   const [view, setView] = useState('login');
@@ -60,7 +60,7 @@ export default function AuthScreen({ onLogin }) {
         });
         const data = await res.json();
         if (data.ok) {
-          onLogin(data.email || '', data.user_id || '');
+          onLogin(data.email || '', data.user_id || '', false);
         } else {
           setError(data.error || 'Google sign-in failed.');
         }
@@ -95,9 +95,21 @@ export default function AuthScreen({ onLogin }) {
         });
         const data = await res.json();
         if (data.ok) {
-          onLogin(email, data.user_id || '');
+          onLogin(email, data.user_id || '', false);
         } else {
           setError(data.error || 'Invalid email or password.');
+        }
+      } else if (view === 'admin') {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          onLogin(email, '', true, data.admin_token || '');
+        } else {
+          setError(data.error || 'Invalid admin credentials.');
         }
       } else if (view === 'register') {
         if (password !== confirm) {
@@ -154,17 +166,29 @@ export default function AuthScreen({ onLogin }) {
     }
   };
 
+  const switchView = (newView) => {
+    setView(newView);
+    setError('');
+    setMessage('');
+    setPassword('');
+  };
+
+  const isAdminView = view === 'admin';
+
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="card w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-cyan-500/10 text-cyan-500 rounded-xl flex items-center justify-center mb-4">
-            <Activity size={28} />
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isAdminView ? 'bg-amber-500/10 text-amber-500' : 'bg-cyan-500/10 text-cyan-500'}`}>
+            {isAdminView ? <Shield size={28} /> : <Activity size={28} />}
           </div>
           <h1 className="text-2xl font-bold">MedAI Clinical Support</h1>
           <p className="text-[var(--text-muted)] text-sm mt-2 text-center">
-            Precision cancer imaging classification system
+            {isAdminView ? 'Administrator access' : 'Precision cancer imaging classification system'}
           </p>
+          {isAdminView && (
+            <span className="mt-2 text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full font-semibold">Admin Login</span>
+          )}
         </div>
 
         {error && <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-md mb-4 text-sm">{error}</div>}
@@ -179,7 +203,7 @@ export default function AuthScreen({ onLogin }) {
                 type="email"
                 required
                 className="input-field pl-10"
-                placeholder="doctor@hospital.org"
+                placeholder={isAdminView ? 'admin@hospital.org' : 'doctor@hospital.org'}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
@@ -237,14 +261,19 @@ export default function AuthScreen({ onLogin }) {
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="btn-primary w-full mt-6 disabled:opacity-60 disabled:cursor-not-allowed">
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full mt-6 disabled:opacity-60 disabled:cursor-not-allowed ${isAdminView ? 'btn-outline border-amber-500/50 text-amber-400 hover:bg-amber-500/10' : 'btn-primary'}`}
+          >
             {loading ? 'Processing...' : (
               <>
                 {view === 'login' && <LogIn size={18} />}
+                {view === 'admin' && <Shield size={18} />}
                 {view === 'register' && <UserPlus size={18} />}
                 {view === 'forgot' && <KeyRound size={18} />}
                 {view === 'reset' && <Check size={18} />}
-                {view === 'login' ? 'Sign In' : view === 'register' ? 'Create Account' : view === 'forgot' ? 'Send Reset Code' : 'Set New Password'}
+                {view === 'login' ? 'Sign In' : view === 'admin' ? 'Admin Sign In' : view === 'register' ? 'Create Account' : view === 'forgot' ? 'Send Reset Code' : 'Set New Password'}
               </>
             )}
           </button>
@@ -265,12 +294,23 @@ export default function AuthScreen({ onLogin }) {
 
         <div className="mt-6 text-center text-sm text-[var(--text-muted)]">
           {view === 'login' ? (
-            <>
-              <button onClick={() => setView('forgot')} className="text-cyan-500 hover:underline mr-4">Forgot Password?</button>
-              <button onClick={() => setView('register')} className="text-cyan-500 hover:underline">Create Account</button>
-            </>
+            <div className="space-y-2">
+              <div>
+                <button onClick={() => switchView('forgot')} className="text-cyan-500 hover:underline mr-4">Forgot Password?</button>
+                <button onClick={() => switchView('register')} className="text-cyan-500 hover:underline">Create Account</button>
+              </div>
+              <div>
+                <button
+                  onClick={() => switchView('admin')}
+                  className="text-amber-500 hover:underline text-xs flex items-center gap-1 mx-auto"
+                >
+                  <Shield size={12} />
+                  Admin Login
+                </button>
+              </div>
+            </div>
           ) : (
-            <button onClick={() => { setView('login'); setError(''); setMessage(''); }} className="text-cyan-500 hover:underline">
+            <button onClick={() => switchView('login')} className="text-cyan-500 hover:underline">
               Back to Sign In
             </button>
           )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { History, FileText, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { History, FileText, Trash2, Image as ImageIcon, ChevronDown, ChevronUp, RefreshCw, Search } from 'lucide-react';
 
 function formatRelativeDate(ts) {
   const diff = Date.now() - ts;
@@ -191,6 +191,7 @@ export default function HistoryPanel() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const userEmail = localStorage.getItem('medai_user_email') || '';
 
@@ -263,6 +264,19 @@ export default function HistoryPanel() {
     }
   };
 
+  const filteredEntries = searchQuery.trim()
+    ? entries.filter(entry => {
+        const q = searchQuery.trim().toLowerCase();
+        const filename = (entry.filename || '').toLowerCase();
+        const id = (entry.id || '').toLowerCase();
+        const result = entry.result || {};
+        const organ = (result.organ_prediction?.selected_label || result.organ_prediction?.label || '').toLowerCase();
+        const subtype = (result.subtype_prediction?.interpreted_label || result.subtype_prediction?.label || '').toLowerCase();
+        const decision = (result.final_decision || '').toLowerCase();
+        return filename.includes(q) || id.includes(q) || organ.includes(q) || subtype.includes(q) || decision.includes(q);
+      })
+    : entries;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -297,6 +311,27 @@ export default function HistoryPanel() {
         </div>
       </div>
 
+      {!loading && entries.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
+          <input
+            type="text"
+            className="input-field pl-9 w-full"
+            placeholder="Search by filename, organ type, result, or entry ID..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)]"
+            >
+              &#10005;
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)]">
           <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
@@ -308,10 +343,19 @@ export default function HistoryPanel() {
           <p className="font-medium text-[var(--text-main)]">No analyses yet</p>
           <p className="text-sm mt-1">Your completed scan analyses will appear here.</p>
         </div>
+      ) : filteredEntries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-[var(--text-muted)]">
+          <Search size={36} className="mb-3 opacity-30" />
+          <p className="font-medium text-[var(--text-main)]">No matches found</p>
+          <p className="text-sm mt-1">Try a different search term.</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-[var(--text-muted)]">{entries.length} {entries.length === 1 ? 'analysis' : 'analyses'} found</p>
-          {entries.map(entry => (
+          <p className="text-xs text-[var(--text-muted)]">
+            {filteredEntries.length} {filteredEntries.length === 1 ? 'analysis' : 'analyses'}
+            {searchQuery.trim() ? ' matching search' : ' found'}
+          </p>
+          {filteredEntries.map(entry => (
             <HistoryEntry key={entry.id} entry={entry} onDelete={handleDelete} />
           ))}
         </div>

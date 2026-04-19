@@ -16,8 +16,11 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 _logger = logging.getLogger('hierarchical_inference')
 
+import secrets as _secrets
+import time as _time
+
 from .auth import change_password, create_reset_code, register_user, reset_password, verify_google_token, verify_login
-from .history import add_entry, bulk_import, clear_history, delete_entry, load_history
+from .history import add_entry, admin_delete_entry, admin_update_entry, backfill_email_index, bulk_import, clear_history, delete_entry, load_all_history, load_history
 from .saved_reports import delete_report, get_report_path, list_reports, save_report
 from .inference_engine import HierarchicalCancerInference
 from .rate_limiter import check_forgot_password
@@ -101,6 +104,31 @@ def _run_evaluation(server: 'InferenceHTTPServer') -> None:
                 server._eval_custom_dir = None
 
 
+_ADMIN_SESSION_TTL = 8 * 3600
+_admin_sessions: dict[str, float] = {}
+_admin_sessions_lock = threading.Lock()
+
+
+def _create_admin_session() -> str:
+    token = _secrets.token_urlsafe(32)
+    with _admin_sessions_lock:
+        _admin_sessions[token] = _time.time() + _ADMIN_SESSION_TTL
+    return token
+
+
+def _validate_admin_session(token: str) -> bool:
+    if not token:
+        return False
+    with _admin_sessions_lock:
+        expiry = _admin_sessions.get(token)
+        if expiry is None:
+            return False
+        if _time.time() > expiry:
+            del _admin_sessions[token]
+            return False
+        return True
+
+
 class InferenceHTTPServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple[str, int], handler_class: type[BaseHTTPRequestHandler], engine: HierarchicalCancerInference) -> None:
         super().__init__(server_address, handler_class)
@@ -144,6 +172,12 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/auth/google-client-id':
             self._handle_google_client_id()
+            return
+        if parsed.path == '/api/admin/history/search':
+            self._handle_admin_history_search(parsed.query)
+            return
+        if parsed.path == '/api/admin/history/all':
+            self._handle_admin_history_all()
             return
         if parsed.path.startswith('/api/'):
             self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
@@ -193,6 +227,15 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/auth/google':
             self._handle_auth_google()
+            return
+        if parsed.path == '/api/admin/login':
+            self._handle_admin_login()
+            return
+        if parsed.path == '/api/admin/history/delete':
+            self._handle_admin_history_delete()
+            return
+        if parsed.path == '/api/admin/history/update':
+            self._handle_admin_history_update()
             return
         self._send_json({'ok': False, 'error': 'Not found'}, status=HTTPStatus.NOT_FOUND)
 
@@ -573,6 +616,102 @@ class InferenceRequestHandler(BaseHTTPRequestHandler):
         delete_report(email, report_id)
         self._send_json({'ok': True})
 
+    def _is_admin_request(self) -> bool:
+        token = (self.headers.get('X-Admin-Token') or '').strip()
+        return _validate_admin_session(token)
+
+    def _handle_admin_login(self) -> None:
+        import os, hmac
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        email = str(body.get('email', '')).strip().lower()
+        password = str(body.get('password', ''))
+        admin_email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
+        admin_password = os.environ.get('ADMIN_PASSWORD', '')
+        if not admin_email or not admin_password:
+            self._send_json({'ok': False, 'error': 'Admin login is not configured.'}, status=HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        email_match = hmac.compare_digest(email, admin_email)
+        password_match = hmac.compare_digest(password, admin_password)
+        if email_match and password_match:
+            token = _create_admin_session()
+            self._send_json({'ok': True, 'is_admin': True, 'admin_token': token})
+        else:
+            self._send_json({'ok': False, 'error': 'Invalid admin credentials.'}, status=HTTPStatus.UNAUTHORIZED)
+
+    def _handle_admin_history_all(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        entries = load_all_history()
+        entries.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
+        self._send_json({'ok': True, 'entries': entries})
+
+    def _handle_admin_history_search(self, query_string: str) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        params = parse_qs(query_string or '')
+        q = (params.get('q', [''])[0] or '').strip().lower()
+        all_entries = load_all_history()
+        if not q:
+            all_entries.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
+            self._send_json({'ok': True, 'entries': all_entries})
+            return
+        matched = []
+        for entry in all_entries:
+            filename = str(entry.get('filename', '')).lower()
+            entry_id = str(entry.get('id', '')).lower()
+            result = entry.get('result') or {}
+            organ = str(result.get('organ_prediction', {}).get('selected_label') or result.get('organ_prediction', {}).get('label') or '').lower()
+            decision = str(result.get('final_decision', '')).lower()
+            subtype = str(result.get('subtype_prediction', {}).get('interpreted_label') or result.get('subtype_prediction', {}).get('label') or '').lower()
+            if q in filename or q in entry_id or q in organ or q in decision or q in subtype:
+                matched.append(entry)
+        matched.sort(key=lambda e: e.get('timestamp', 0), reverse=True)
+        self._send_json({'ok': True, 'entries': matched})
+
+    def _handle_admin_history_delete(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        user_email = str(body.get('user_email', ''))
+        entry_id = str(body.get('entry_id', ''))
+        if not user_email or not entry_id:
+            self._send_json({'ok': False, 'error': 'user_email and entry_id are required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        admin_delete_entry(user_email, entry_id)
+        self._send_json({'ok': True})
+
+    def _handle_admin_history_update(self) -> None:
+        if not self._is_admin_request():
+            self._send_json({'ok': False, 'error': 'Unauthorized.'}, status=HTTPStatus.UNAUTHORIZED)
+            return
+        try:
+            body = self._read_json_body()
+        except ValueError as exc:
+            self._send_json({'ok': False, 'error': str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        user_email = str(body.get('user_email', ''))
+        entry_id = str(body.get('entry_id', ''))
+        updates = body.get('updates', {})
+        if not user_email or not entry_id or not isinstance(updates, dict):
+            self._send_json({'ok': False, 'error': 'user_email, entry_id, and updates are required.'}, status=HTTPStatus.BAD_REQUEST)
+            return
+        found = admin_update_entry(user_email, entry_id, updates)
+        if found:
+            self._send_json({'ok': True})
+        else:
+            self._send_json({'ok': False, 'error': 'Entry not found.'}, status=HTTPStatus.NOT_FOUND)
+
     def _get_user_email(self) -> str | None:
         email = (self.headers.get('X-User-Email') or '').strip().lower()
         return email if email and '@' in email else None
@@ -754,6 +893,7 @@ def main() -> None:
             'obtained from the Google Cloud Console (APIs & Services → Credentials).'
         )
         _sys.exit(1)
+    backfill_email_index()
     server = InferenceHTTPServer((args.host, args.port), InferenceRequestHandler, engine)
     logger.info('Frontend available at http://%s:%s', args.host, args.port)
     try:

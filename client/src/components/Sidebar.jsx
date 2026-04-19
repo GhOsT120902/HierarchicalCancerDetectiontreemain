@@ -1,6 +1,6 @@
-import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, History, Settings, FlaskConical, Moon, Sun, LogOut } from 'lucide-react';
+import { Activity, LayoutDashboard, Upload as UploadIcon, BarChart2, FileText, History, Settings, FlaskConical, Moon, Sun, LogOut, Shield } from 'lucide-react';
 
-export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setActiveTab }) {
+export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setActiveTab, isAdmin }) {
   const navItems = [
     { name: 'Dashboard',      icon: LayoutDashboard },
     { name: 'Upload Scan',    icon: UploadIcon },
@@ -10,6 +10,10 @@ export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setAc
     { name: 'History',        icon: History },
     { name: 'Settings',       icon: Settings },
   ];
+
+  if (isAdmin) {
+    navItems.push({ name: 'Admin Controls', icon: Shield });
+  }
 
   return (
     <aside
@@ -27,34 +31,38 @@ export default function Sidebar({ onLogout, theme, toggleTheme, activeTab, setAc
       >
         <Activity className="text-cyan-400 mr-3" size={24} />
         <span className="text-xl font-bold tracking-wide" style={{ color: 'var(--text-main)' }}>MedAI</span>
+        {isAdmin && (
+          <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-semibold">Admin</span>
+        )}
       </div>
 
       <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.name;
+          const isAdminTab = item.name === 'Admin Controls';
           return (
             <button
               key={item.name}
               onClick={() => setActiveTab(item.name)}
               className="w-full flex items-center px-3 py-2.5 rounded-lg transition-colors"
               style={isActive ? {
-                backgroundColor: 'var(--sidebar-active-bg)',
-                color: 'var(--sidebar-active-text)',
+                backgroundColor: isAdminTab ? 'rgba(245,158,11,0.15)' : 'var(--sidebar-active-bg)',
+                color: isAdminTab ? 'rgb(251,191,36)' : 'var(--sidebar-active-text)',
                 fontWeight: 500,
               } : {
-                color: 'var(--text-sidebar)',
+                color: isAdminTab ? 'rgb(217,119,6)' : 'var(--text-sidebar)',
               }}
               onMouseEnter={e => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
-                  e.currentTarget.style.color = 'var(--text-main)';
+                  e.currentTarget.style.backgroundColor = isAdminTab ? 'rgba(245,158,11,0.1)' : 'var(--sidebar-hover)';
+                  e.currentTarget.style.color = isAdminTab ? 'rgb(251,191,36)' : 'var(--text-main)';
                 }
               }}
               onMouseLeave={e => {
                 if (!isActive) {
                   e.currentTarget.style.backgroundColor = '';
-                  e.currentTarget.style.color = 'var(--text-sidebar)';
+                  e.currentTarget.style.color = isAdminTab ? 'rgb(217,119,6)' : 'var(--text-sidebar)';
                 }
               }}
             >

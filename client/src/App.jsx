@@ -15,10 +15,16 @@ function App() {
     localStorage.setItem('medai_theme', theme);
   }, [theme]);
 
-  const handleLogin = (email, userId) => {
+  const handleLogin = (email, userId, isAdmin = false, adminToken = '') => {
     localStorage.setItem('medai_logged_in', 'true');
     localStorage.setItem('medai_user_email', email);
     if (userId) localStorage.setItem('medai_user_id', userId);
+    localStorage.setItem('medai_is_admin', isAdmin ? 'true' : 'false');
+    if (isAdmin && adminToken) {
+      localStorage.setItem('medai_admin_token', adminToken);
+    } else {
+      localStorage.removeItem('medai_admin_token');
+    }
     setIsLoggedIn(true);
   };
 
@@ -26,6 +32,8 @@ function App() {
     localStorage.removeItem('medai_logged_in');
     localStorage.removeItem('medai_user_email');
     localStorage.removeItem('medai_user_id');
+    localStorage.removeItem('medai_is_admin');
+    localStorage.removeItem('medai_admin_token');
     setIsLoggedIn(false);
   };
 

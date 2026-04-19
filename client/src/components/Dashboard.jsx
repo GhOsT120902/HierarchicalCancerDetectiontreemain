@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings, Lock, KeyRound, Check } from 'lucide-react';
+import { Settings, Lock, KeyRound, Check, Search } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import HeroSection from './HeroSection';
@@ -8,6 +8,7 @@ import DiagnosticResults from './DiagnosticResults';
 import ModelAccuracy from './ModelAccuracy';
 import HistoryPanel from './HistoryPanel';
 import ReportsPanel from './ReportsPanel';
+import AdminControls from './AdminControls';
 
 function SettingsPanel() {
   const [currentPw, setCurrentPw] = useState('');
@@ -122,6 +123,101 @@ function SettingsPanel() {
   );
 }
 
+function getAdminHeaders() {
+  const token = localStorage.getItem('medai_admin_token') || '';
+  return { 'X-Admin-Token': token };
+}
+
+function AdminSearchBar() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) { setResults(null); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/admin/history/search?q=${encodeURIComponent(q)}`, {
+          headers: getAdminHeaders(),
+        });
+        if (res.status === 401) {
+          localStorage.removeItem('medai_admin_token');
+          localStorage.removeItem('medai_is_admin');
+          localStorage.removeItem('medai_logged_in');
+          window.location.reload();
+          return;
+        }
+        const data = await res.json();
+        if (data.ok) setResults(data.entries || []);
+      } catch {}
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  return (
+    <div className="mb-2">
+      <div className="card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Search size={16} className="text-amber-400" />
+          <span className="text-sm font-semibold text-amber-400">Admin — Cross-User Search</span>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={16} />
+          <input
+            type="text"
+            className="input-field pl-9 w-full"
+            placeholder="Search all users by filename, organ type, result, or entry ID..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {results !== null && (
+          <div className="mt-3">
+            {results.length === 0 ? (
+              <p className="text-sm text-[var(--text-muted)] text-center py-2">No entries found.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                <p className="text-xs text-[var(--text-muted)]">{results.length} result{results.length !== 1 ? 's' : ''} found</p>
+                {results.map(entry => {
+                  const decision = entry.result?.final_decision || 'Unknown';
+                  const organ = entry.result?.organ_prediction?.selected_label || entry.result?.organ_prediction?.label || '';
+                  const subtype = entry.result?.subtype_prediction?.interpreted_label || entry.result?.subtype_prediction?.label || '';
+                  const summary = [organ, subtype].filter(Boolean).join(' › ') || decision;
+                  const isMalignant = decision?.toLowerCase().includes('malignant');
+                  const isBenign = decision?.toLowerCase().includes('benign');
+                  const decisionColor = isMalignant ? 'text-red-400' : isBenign ? 'text-green-400' : 'text-yellow-400';
+                  return (
+                    <div key={`${entry._user_email}-${entry.id}`} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-[var(--text-main)]">{entry.filename}</p>
+                        <p className="text-xs text-amber-400/80 truncate" title={entry._user_email}>{entry._user_email}</p>
+                        <p className={`text-xs font-semibold ${decisionColor}`}>{summary}</p>
+                        <p className="text-xs text-[var(--text-muted)] font-mono truncate">ID: {entry.id}</p>
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)] flex-shrink-0">
+                        {new Date(entry.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [modelStatus, setModelStatus] = useState(null);
   const [result, setResult]           = useState(null);
@@ -131,6 +227,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exportData, setExportData]   = useState(null);
   const userEmail = localStorage.getItem('medai_user_email') || 'doctor@hospital.org';
+  const isAdmin = localStorage.getItem('medai_is_admin') === 'true';
 
   useEffect(() => {
     fetchHealth();
@@ -262,6 +359,9 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
       case 'Settings':
         return <SettingsPanel />;
 
+      case 'Admin Controls':
+        return isAdmin ? <AdminControls /> : null;
+
       default:
         return (
           <>
@@ -308,6 +408,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
           activeTab={activeTab}
           setActiveTab={(tab) => { setActiveTab(tab); setSidebarOpen(false); }}
           onClose={() => setSidebarOpen(false)}
+          isAdmin={isAdmin}
         />
       </div>
 
@@ -316,6 +417,7 @@ export default function Dashboard({ onLogout, theme, toggleTheme }) {
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
+            {isAdmin && <AdminSearchBar />}
             {renderMain()}
           </div>
         </main>
