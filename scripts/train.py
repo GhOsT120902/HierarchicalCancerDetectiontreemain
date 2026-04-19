@@ -76,6 +76,8 @@ latency that keeps the GPU idle between batches.
         print("Dataset already extracted, skipping.")
 
     # ── Cell 4: Train (batch 64 saturates T4's 16 GB with FP16) ──────────────
+    # --drive-backup-dir copies the best checkpoint to Drive every 5 epochs
+    # automatically, protecting against session disconnects mid-training.
     !python scripts/train.py \\
         --target organ \\
         --data-dir /content/dataset \\
@@ -83,9 +85,14 @@ latency that keeps the GPU idle between batches.
         --freeze-epochs 5 \\
         --batch-size 64 \\
         --num-workers 2 \\
-        --device cuda
+        --device cuda \\
+        --drive-backup-dir /content/drive/MyDrive/models \\
+        --backup-every 5
 
-    # ── Cell 5: Save best checkpoint back to Drive ────────────────────────────
+    # ── Cell 5: (Optional) Copy the final checkpoint to Drive manually ────────
+    # The best checkpoint is already copied to Drive automatically during
+    # training via --drive-backup-dir.  Use the cell below only if you also
+    # want the final-epoch checkpoint saved to Drive:
     import shutil
     shutil.copy("models/resnet50_organ_classifier.pth",
                 "/content/drive/MyDrive/models/resnet50_organ_classifier.pth")
@@ -115,6 +122,7 @@ from __future__ import annotations
 import argparse
 import collections
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -485,11 +493,17 @@ def main() -> None:
                         help="Disable Automatic Mixed Precision even on CUDA.")
     parser.add_argument("--no-weighted-sampler", action="store_true",
                         help="Disable WeightedRandomSampler (use plain shuffled sampling instead).")
+    parser.add_argument("--drive-backup-dir", type=Path, default=None,
+                        help="(Colab) Google Drive folder to copy the best checkpoint into during training.")
+    parser.add_argument("--backup-every", type=int, default=5,
+                        help="Copy the best checkpoint to --drive-backup-dir every N epochs (default: 5).")
     args = parser.parse_args()
 
     # ── Validation ────────────────────────────────────────────────────────────
     if not (0 < args.val_split < 1):
         parser.error("--val-split must be strictly between 0 and 1.")
+    if args.backup_every < 1:
+        parser.error("--backup-every must be a positive integer (>= 1).")
     if not args.data_dir.exists():
         parser.error(f"--data-dir does not exist: {args.data_dir}")
 
@@ -542,6 +556,8 @@ def main() -> None:
     print(f"  num_workers      : {num_workers}")
     print(f"  Weighted sampler : {'no' if args.no_weighted_sampler else 'yes'}")
     print(f"  Output dir       : {args.output_dir}")
+    if args.drive_backup_dir:
+        print(f"  Drive backup dir : {args.drive_backup_dir}  (every {args.backup_every} epochs)")
     print()
 
     # ── Dataset ───────────────────────────────────────────────────────────────
@@ -616,6 +632,7 @@ def main() -> None:
     best_val_acc  = -1.0
     best_ckpt_path  = args.output_dir / best_ckpt_name
     final_ckpt_path = args.output_dir / final_ckpt_name
+    new_best_since_last_backup = False
 
     header = (
         f"{'Epoch':>6}  {'Phase':>6}  {'LR(head)':>10}  "
@@ -657,6 +674,14 @@ def main() -> None:
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             save_checkpoint(model, args.target, num_classes, label_to_idx, best_ckpt_path)
+            new_best_since_last_backup = True
+
+        if args.drive_backup_dir and epoch % args.backup_every == 0 and new_best_since_last_backup:
+            args.drive_backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_dest = args.drive_backup_dir / best_ckpt_name
+            shutil.copy2(best_ckpt_path, backup_dest)
+            print(f"  Backup saved → {backup_dest}")
+            new_best_since_last_backup = False
 
     print()
     print(f"Training complete. Best val accuracy: {best_val_acc:.2%}")
